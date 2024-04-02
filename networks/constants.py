@@ -80,7 +80,7 @@ REGION_CODES = {
         "mechanical": 98,  # dropped
     },
     "科技": {
-        "tech": 188,
+        # "tech": 188,
         "digital": 95,
         "application": 230,
         "computer_tech": 231,
