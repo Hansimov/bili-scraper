@@ -1,8 +1,9 @@
 import ast
 import concurrent.futures
+import os
 import requests
 
-from tclogger import logger, OSEnver, Runtimer
+from tclogger import logger, count_digits, OSEnver, Runtimer
 from pathlib import Path
 
 from .constants import REQUESTS_HEADERS
@@ -36,12 +37,13 @@ class ProxyBenchmarker:
         self.tested_count = 0
         self.success_count = 0
         self.success_proxies = []
-        self.timer = Runtimer(is_log=False)
+        self.timer = Runtimer(False)
+        self.max_workers = os.cpu_count() * 64
 
     def test_proxy(self, proxy=None):
         self.timer.start_time()
         self.tested_count += 1
-        count_str = f"[{self.tested_count}/{self.total_count}]"
+        count_str = f"[{self.tested_count:>{count_digits(self.total_count)}}/{self.total_count}]"
         try:
             res = requests.get(
                 self.test_url,
@@ -53,7 +55,7 @@ class ProxyBenchmarker:
                 timeout=1,
             )
         except:
-            logger.err(f"{count_str} × Not Connected: {proxy}")
+            logger.back(f"{count_str} × Not Connected: {proxy}")
             return False
 
         self.timer.end_time()
@@ -66,7 +68,7 @@ class ProxyBenchmarker:
             self.success_count += 1
             self.success_proxies.append(proxy)
         except:
-            logger.err(f"{count_str} × [{res.status_code}] {proxy}")
+            logger.back(f"{count_str} × [{res.status_code}] {proxy}")
             return False
 
         return True
@@ -74,7 +76,9 @@ class ProxyBenchmarker:
     def batch_test_proxy(self, proxies):
         logger.note(f"> Benchmarking {len(proxies)} proxies")
         self.total_count = len(proxies)
-        with concurrent.futures.ThreadPoolExecutor() as executor:
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=self.max_workers
+        ) as executor:
             futures = [executor.submit(self.test_proxy, proxy) for proxy in proxies]
 
         for idx, future in enumerate(concurrent.futures.as_completed(futures)):
@@ -84,14 +88,15 @@ class ProxyBenchmarker:
         logger.note(f"/{self.total_count}")
 
         if self.success_proxies:
-            logger.success(self.success_proxies)
+            logger.back(self.success_proxies)
 
 
 if __name__ == "__main__":
-    proxy_pool = ProxyPool()
-    proxies = proxy_pool.get_proxies_list()
+    with Runtimer():
+        proxy_pool = ProxyPool()
+        proxies = proxy_pool.get_proxies_list()
 
-    benchmarker = ProxyBenchmarker()
-    benchmarker.batch_test_proxy(proxies[:])
+        benchmarker = ProxyBenchmarker()
+        benchmarker.batch_test_proxy(proxies[:])
 
     # python -m networks.proxy_pool
