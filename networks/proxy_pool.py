@@ -48,10 +48,7 @@ class ProxyBenchmarker:
             res = requests.get(
                 self.test_url,
                 headers=REQUESTS_HEADERS,
-                proxies={
-                    "http": f"http://{proxy}",
-                    "https": f"http://{proxy}",
-                },
+                proxies={"http": f"http://{proxy}", "https": f"http://{proxy}"},
                 timeout=1,
             )
         except:
@@ -64,8 +61,10 @@ class ProxyBenchmarker:
 
         try:
             data = res.json()
-            logger.success(f"{count_str} √ OK: [{elapsed_time_str}] {proxy}")
             self.success_count += 1
+            logger.success(
+                f"√ [{self.success_count}] {count_str} [{elapsed_time_str}]: {proxy}"
+            )
             self.success_proxies.append(proxy)
         except:
             logger.back(f"{count_str} × [{res.status_code}] {proxy}")
