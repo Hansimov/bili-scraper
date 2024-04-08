@@ -7,9 +7,9 @@
     },
     "proxy_app": {
         "app_name": "Proxy App",
-        "host": "0.0.0.0",
+        "host": "127.0.0.1",
         "port": 19001,
-        "version": "0.1"
+        "version": "0.2"
     },
     "worker_app": {
         "app_name": "Worker App",
