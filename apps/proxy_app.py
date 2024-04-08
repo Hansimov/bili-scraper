@@ -12,19 +12,16 @@ from fastapi.responses import HTMLResponse
 from tclogger import logger, OSEnver
 
 from networks.proxy_pool import ProxyPool, ProxyBenchmarker
-
-
-info_path = Path(__file__).parents[1] / "configs" / "info.json"
-ENVER = OSEnver(info_path)["proxy_app"]
+from configs.envs import PROXY_APP_ENVS
 
 
 class ProxyApp:
     def __init__(self):
         self.app = FastAPI(
             docs_url="/",
-            title=ENVER["app_name"],
+            title=PROXY_APP_ENVS["app_name"],
             swagger_ui_parameters={"defaultModelsExpandDepth": -1},
-            version=ENVER["version"],
+            version=PROXY_APP_ENVS["version"],
         )
         self.setup_routes()
 
@@ -62,15 +59,15 @@ class ArgParser(argparse.ArgumentParser):
             "-s",
             "--host",
             type=str,
-            default=ENVER["host"],
-            help=f"Host ({ENVER['host']}) for {ENVER['app_name']}",
+            default=PROXY_APP_ENVS["host"],
+            help=f"Host ({PROXY_APP_ENVS['host']}) for {PROXY_APP_ENVS['app_name']}",
         )
         self.add_argument(
             "-p",
             "--port",
             type=int,
-            default=ENVER["port"],
-            help=f"Port ({ENVER['port']}) for {ENVER['app_name']}",
+            default=PROXY_APP_ENVS["port"],
+            help=f"Port ({PROXY_APP_ENVS['port']}) for {PROXY_APP_ENVS['app_name']}",
         )
 
         self.args = self.parse_args(sys.argv[1:])

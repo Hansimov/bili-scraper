@@ -3,20 +3,21 @@ import concurrent.futures
 import os
 import requests
 
-from tclogger import logger, count_digits, OSEnver, Runtimer
+from tclogger import logger, int_bits, OSEnver, Runtimer
 from pathlib import Path
 
-from .constants import REQUESTS_HEADERS
+from networks.constants import REQUESTS_HEADERS
+from configs.envs import SECRETS
 
 
 class ProxyPool:
     def __init__(self):
-        enver = OSEnver(Path(__file__).parents[1] / "configs" / "secrets.json")
-        self.proxy_endpoint = enver["proxy_endpoint"]
+        pass
 
     def get_proxies_list(self):
-        logger.note(f"> Fetching proxies list from {self.proxy_endpoint}", end=" ")
-        response = requests.get(self.proxy_endpoint, headers=REQUESTS_HEADERS)
+        proxy_endpoint = SECRETS["proxy_endpoint"]
+        logger.note(f"> Fetching proxies list from {proxy_endpoint}", end=" ")
+        response = requests.get(proxy_endpoint, headers=REQUESTS_HEADERS)
         if response.status_code == 200:
             logger.success(f"[{response.status_code}]")
             data = ast.literal_eval(response.text)
@@ -43,7 +44,9 @@ class ProxyBenchmarker:
     def test_proxy(self, proxy=None):
         self.timer.start_time()
         self.tested_count += 1
-        count_str = f"[{self.tested_count:>{count_digits(self.total_count)}}/{self.total_count}]"
+        count_str = (
+            f"[{self.tested_count:>{int_bits(self.total_count)}}/{self.total_count}]"
+        )
         try:
             res = requests.get(
                 self.test_url,
