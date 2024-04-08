@@ -1,5 +1,6 @@
 import argparse
 import markdown2
+import pandas as pd
 import sys
 import uvicorn
 
@@ -15,6 +16,32 @@ from networks.proxy_pool import ProxyPool, ProxyBenchmarker
 from configs.envs import PROXY_APP_ENVS
 
 
+class ProxiesDatabase:
+    def __init__(self):
+        self.init_df()
+
+    def init_df(self):
+        # create a pandas dataframe to store good proxies
+        # columns: server(ip:port):str, latency:float, last_checked:datetime
+        self.column_dtypes = {
+            "server": str,
+            "latency": float,
+            "last_checked": "datetime64[ns]",
+        }
+        self.columns = list(self.column_dtypes.keys())
+        self.df = pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
+
+    def add_proxy(self, server: str, latency: float):
+        logger.success(f"+ Add proxy: [{latency:.2f}s] {server}")
+        new_item = {
+            "server": [server],
+            "latency": [latency],
+            "last_checked": [pd.Timestamp.now()],
+        }
+        new_row = pd.DataFrame(new_item)
+        self.df = pd.concat([self.df, new_row])
+
+
 class ProxyApp:
     def __init__(self):
         self.app = FastAPI(
@@ -23,16 +50,40 @@ class ProxyApp:
             swagger_ui_parameters={"defaultModelsExpandDepth": -1},
             version=PROXY_APP_ENVS["version"],
         )
+        self.db = ProxiesDatabase()
         self.setup_routes()
 
-    def refresh_proxies(self, latency: Optional[float] = 1.0):
+    def refresh_proxies(self):
         logger.note(f"> Refreshing proxies")
+        proxies = ProxyPool().get_proxies_list()
+        benchmarker = ProxyBenchmarker()
+        benchmarker.batch_test_proxy(proxies, callback=self.db.add_proxy)
+        res = {
+            "total": len(proxies),
+            "usable": len(self.db.df),
+            "status": "refreshed",
+        }
+        return res
 
     def get_all_proxies(self):
         logger.note(f"> Return all proxies")
 
-    def get_proxy(self, latency: Optional[float] = 1.0):
+    def get_proxy(self):
         logger.note(f"> Return a random proxy")
+        res = {
+            "server": "test",
+            "latency": 0.0,
+            "status": "ok",
+        }
+        return res
+
+    def del_proxy(self, server: str):
+        logger.warn(f"> Delete proxy: {server}")
+        res = {
+            "server": server,
+            "status": "deleted",
+        }
+        return res
 
     def setup_routes(self):
         self.app.get(
@@ -44,6 +95,11 @@ class ProxyApp:
             "/get_proxy",
             summary="Get a proxy",
         )(self.get_proxy)
+
+        self.app.delete(
+            "/del_proxy",
+            summary="Delete a proxy",
+        )(self.del_proxy)
 
         self.app.post(
             "/refresh_proxies",
