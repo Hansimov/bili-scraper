@@ -1,0 +1,7 @@
+fastapi
+markdown2
+pandas
+pydantic
+Requests
+tclogger
+uvicorn
