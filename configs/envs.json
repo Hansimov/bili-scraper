@@ -3,7 +3,7 @@
         "app_name": "Scheduler App",
         "host": "0.0.0.0",
         "port": 19000,
-        "version": "0.0"
+        "version": "0.1"
     },
     "proxy_app": {
         "app_name": "Proxy App",
