@@ -2,6 +2,7 @@ import argparse
 import markdown2
 import pandas as pd
 import sys
+import uuid
 import uvicorn
 
 from pathlib import Path
@@ -13,6 +14,7 @@ from fastapi.responses import HTMLResponse
 from tclogger import logger, OSEnver
 
 from networks.proxy_pool import ProxyPool, ProxyBenchmarker
+from networks.video_page import VideoPageFetcher
 from configs.envs import SCHEDULER_APP_ENVS
 
 
@@ -26,6 +28,17 @@ class SchedulerApp:
         )
         self.setup_routes()
 
+    def next_task_params(self):
+        pass
+
+    def new_worker(self, task_params: dict):
+        worker_id = str(uuid.uuid4())
+        logger.note(f"New worker: {worker_id}")
+        logger.mesg(task_params)
+
+    def remove_worker(self, worker_id: str):
+        pass
+
     class VideoInfoPostItem(BaseModel):
         code: int = Field(default=0)
         message: str = Field(default="0")
@@ -37,19 +50,26 @@ class SchedulerApp:
         logger.note(f"Video info:")
         logger.mesg(data)
 
-    def next_task(self):
-        pass
-
     def setup_routes(self):
+        self.app.post(
+            "/next_task_params",
+            summary="Determine next task by: Region(tid), Page idx (pn), Page size (ps)",
+        )(self.next_task_params)
+
+        self.app.post(
+            "/new_worker",
+            summary="Create new worker by: Region(tid), Page idx (pn), Page size (ps)",
+        )(self.new_worker)
+
+        self.app.post(
+            "remove_worker",
+            summary="Remove worker by: Worker id",
+        )(self.remove_worker)
+
         self.app.post(
             "/save_video_info",
             summary="Save video info to database",
         )(self.save_video_info)
-
-        self.app.post(
-            "/next_task",
-            summary="Determine next task by: Region(tid), Page idx (pn), Page size (ps)",
-        )(self.next_task)
 
 
 class ArgParser(argparse.ArgumentParser):
