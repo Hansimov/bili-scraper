@@ -7,38 +7,13 @@ Regions:
 
 - https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_zone.html
 
-## Storage Structure
-
-```sh
-.
-└── regions/
-    ├── douga/
-    │   ├── 2009/
-    │   │   ├── 2009_06.parquet
-    │   │   ├── 2009_07.parquet
-    │   │   ├── ...
-    │   │   └── 2009_12.parquet
-    │   ├── 2010/
-    │   │   ├── 2010_01.parquet
-    │   │   ├── ...
-    │   │   └── 2010_12.parquet
-    │   ├── ...
-    │   └── 2024/
-    │       └── ...
-    ├── anime/
-    ├── guochuang/
-    ├── music/
-    ├── dance/
-    ├── game/
-    ├── ...
-    └── tv/
-```
 
 ## JSON format
 
 JSON fields:
 
 - https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html
+- http://api.bilibili.com/x/web-interface/newlist?rid=95&pn=1&ps=50
 
 ```json
 {
@@ -86,7 +61,9 @@ JSON fields:
         "dynamic": "",
         "cid": 1491380610,
         "dimension": {
-            ...
+          "width": 720,
+          "height": 1600,
+          "rotate": 0
         },
         "short_link_v2": "https://b23.tv/BV1hm421E7mD",
         "up_from_v2": 35,
