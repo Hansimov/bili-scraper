@@ -16,5 +16,11 @@
         "host": "0.0.0.0",
         "port": 19002,
         "version": "0.0"
+    },
+    "video_page_api_mocker": {
+        "app_name": "Video Page API Mocker",
+        "host": "0.0.0.0",
+        "port": 19101,
+        "version": "1.0"
     }
 }
