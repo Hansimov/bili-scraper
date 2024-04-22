@@ -215,48 +215,51 @@ REGION_CODES = {
         "tid": 36,
         "children": {
             "science": {
-                "name": "",
+                "name": "科学科普",
                 "tid": 201,
             },
             "social_science": {
-                "name": "",
+                "name": "社科·法律·心理",
                 "tid": 124,
             },
             "humanity_history": {
-                "name": "",
+                "name": "人文历史",
                 "tid": 228,
             },
             "business": {
-                "name": "",
+                "name": "财经商业",
                 "tid": 207,
             },
             "campus": {
-                "name": "",
+                "name": "校园学习",
                 "tid": 208,
             },
             "career": {
-                "name": "",
+                "name": "职业职场",
                 "tid": 209,
             },
             "design": {
-                "name": "",
+                "name": "设计·创意",
                 "tid": 229,
             },
             "skill": {
-                "name": "",
+                "name": "野生技术协会",
                 "tid": 122,
             },
             "speech_course": {
-                "name": "",
+                "name": "演讲·公开课",
                 "tid": 39,
+                "status": "offline",
             },
             "military": {
-                "name": "",
+                "name": "星海",
                 "tid": 96,
+                "status": "offline",
             },
             "mechanical": {
-                "name": "",
+                "name": "机械",
                 "tid": 98,
+                "status": "offline",
             },
         },
     },
@@ -265,19 +268,19 @@ REGION_CODES = {
         "tid": 188,
         "children": {
             "digital": {
-                "name": "",
+                "name": "数码",
                 "tid": 95,
             },
             "application": {
-                "name": "",
+                "name": "软件应用",
                 "tid": 230,
             },
             "computer_tech": {
-                "name": "",
+                "name": "计算机技术",
                 "tid": 231,
             },
             "industry": {
-                "name": "",
+                "name": "科工机械",
                 "tid": 232,
             },
             "design": {
@@ -285,20 +288,23 @@ REGION_CODES = {
                 "tid": 229,
             },
             "diy": {
-                "name": "",
+                "name": "极客DIY",
                 "tid": 233,
             },
             "pc": {
-                "name": "",
+                "name": "电脑装机",
                 "tid": 189,
+                "status": "offline",
             },
             "photography": {
-                "name": "",
+                "name": "摄影摄像",
                 "tid": 190,
+                "status": "offline",
             },
             "intelligence_av": {
-                "name": "",
+                "name": "影音智能",
                 "tid": 191,
+                "status": "offline",
             },
         },
     },
@@ -307,27 +313,27 @@ REGION_CODES = {
         "tid": 234,
         "children": {
             "basketball": {
-                "name": "",
+                "name": "篮球",
                 "tid": 235,
             },
             "football": {
-                "name": "",
+                "name": "足球",
                 "tid": 249,
             },
             "aerobics": {
-                "name": "",
+                "name": "健身",
                 "tid": 164,
             },
             "athletic": {
-                "name": "",
+                "name": "竞技体育",
                 "tid": 236,
             },
             "culture": {
-                "name": "",
+                "name": "运动文化",
                 "tid": 237,
             },
             "comprehensive": {
-                "name": "",
+                "name": "运动综合",
                 "tid": 238,
             },
         },
@@ -337,48 +343,51 @@ REGION_CODES = {
         "tid": 223,
         "children": {
             "knowledge": {
-                "name": "",
+                "name": "汽车知识科普",
                 "tid": 258,
             },
             "racing": {
-                "name": "",
+                "name": "赛车",
                 "tid": 245,
             },
             "modifiedvehicle": {
-                "name": "",
+                "name": "改装玩车",
                 "tid": 246,
             },
             "newenergyvehicle": {
-                "name": "",
+                "name": "新能源车",
                 "tid": 247,
             },
             "touringcar": {
-                "name": "",
+                "name": "房车",
                 "tid": 248,
             },
             "motorcycle": {
-                "name": "",
+                "name": "摩托车",
                 "tid": 240,
             },
             "strategy": {
-                "name": "",
+                "name": "购车攻略",
                 "tid": 227,
             },
             "life": {
-                "name": "",
+                "name": "汽车生活",
                 "tid": 176,
             },
             "culture": {
-                "name": "",
+                "name": "汽车文化",
                 "tid": 224,
+                "status": "offline",
             },
             "geek": {
-                "name": "",
+                "name": "汽车极客",
                 "tid": 225,
+                "status": "offline",
             },
             "smart": {
-                "name": "",
+                "name": "智能出行",
                 "tid": 226,
+                "status": "offline",
             },
         },
     },
@@ -387,56 +396,61 @@ REGION_CODES = {
         "tid": 160,
         "children": {
             "funny": {
-                "name": "",
+                "name": "搞笑",
                 "tid": 138,
             },
             "travel": {
-                "name": "",
+                "name": "出行",
                 "tid": 250,
             },
             "rurallife": {
-                "name": "",
+                "name": "三农",
                 "tid": 251,
             },
             "home": {
-                "name": "",
+                "name": "家居房产",
                 "tid": 239,
             },
             "handmake": {
-                "name": "",
+                "name": "手工",
                 "tid": 161,
             },
             "painting": {
-                "name": "",
+                "name": "绘画",
                 "tid": 162,
             },
             "daily": {
-                "name": "",
+                "name": "日常",
                 "tid": 21,
             },
             "parenting": {
-                "name": "",
+                "name": "亲子",
                 "tid": 254,
             },
             "food": {
-                "name": "",
+                "name": "美食圈",
                 "tid": 76,
+                "status": "redirect",
             },
             "animal": {
-                "name": "",
+                "name": "动物圈",
                 "tid": 75,
+                "status": "redirect",
             },
             "sports": {
-                "name": "",
+                "name": "运动",
                 "tid": 163,
+                "status": "redirect",
             },
             "automobile": {
-                "name": "",
+                "name": "汽车",
                 "tid": 176,
+                "status": "redirect",
             },
             "other": {
-                "name": "",
+                "name": "其他",
                 "tid": 174,
+                "status": "offline",
             },
         },
     },
@@ -445,23 +459,23 @@ REGION_CODES = {
         "tid": 211,
         "children": {
             "make": {
-                "name": "",
+                "name": "美食制作",
                 "tid": 76,
             },
             "detective": {
-                "name": "",
+                "name": "美食侦探",
                 "tid": 212,
             },
             "measurement": {
-                "name": "",
+                "name": "美食测评",
                 "tid": 213,
             },
             "rural": {
-                "name": "",
+                "name": "田园美食",
                 "tid": 214,
             },
             "record": {
-                "name": "",
+                "name": "美食记录",
                 "tid": 215,
             },
         },
@@ -471,27 +485,27 @@ REGION_CODES = {
         "tid": 217,
         "children": {
             "cat": {
-                "name": "",
+                "name": "喵星人",
                 "tid": 218,
             },
             "dog": {
-                "name": "",
+                "name": "汪星人",
                 "tid": 219,
             },
             "second_edition": {
-                "name": "",
+                "name": "动物二创",
                 "tid": 220,
             },
             "wild_animal": {
-                "name": "",
+                "name": "野生动物",
                 "tid": 221,
             },
             "reptiles": {
-                "name": "",
+                "name": "小宠异宠",
                 "tid": 222,
             },
             "animal_composite": {
-                "name": "",
+                "name": "动物综合",
                 "tid": 75,
             },
         },
@@ -501,23 +515,23 @@ REGION_CODES = {
         "tid": 119,
         "children": {
             "guide": {
-                "name": "",
+                "name": "鬼畜调教",
                 "tid": 22,
             },
             "mad": {
-                "name": "",
+                "name": "音MAD",
                 "tid": 26,
             },
             "manual_vocaloid": {
-                "name": "",
+                "name": "人力VOCALOID",
                 "tid": 126,
             },
             "theatre": {
-                "name": "",
+                "name": "鬼畜剧场",
                 "tid": 216,
             },
             "course": {
-                "name": "",
+                "name": "教程演示",
                 "tid": 127,
             },
         },
@@ -527,28 +541,30 @@ REGION_CODES = {
         "tid": 155,
         "children": {
             "makeup": {
-                "name": "",
+                "name": "美妆护肤",
                 "tid": 157,
             },
             "cos": {
-                "name": "",
+                "name": "仿妆cos",
                 "tid": 252,
             },
             "clothing": {
-                "name": "",
+                "name": "穿搭",
                 "tid": 158,
             },
             "catwalk": {
-                "name": "",
+                "name": "时尚潮流",
                 "tid": 159,
             },
             "aerobics": {
-                "name": "",
+                "name": "健身",
                 "tid": 164,
+                "status": "redirect",
             },
             "trends": {
-                "name": "",
+                "name": "风尚标",
                 "tid": 192,
+                "status": "offline",
             },
         },
     },
@@ -557,19 +573,19 @@ REGION_CODES = {
         "tid": 202,
         "children": {
             "hotspot": {
-                "name": "",
+                "name": "热点",
                 "tid": 203,
             },
             "global": {
-                "name": "",
+                "name": "环球",
                 "tid": 204,
             },
             "social": {
-                "name": "",
+                "name": "社会",
                 "tid": 205,
             },
             "multiple": {
-                "name": "",
+                "name": "综合",
                 "tid": 206,
             },
         },
@@ -579,7 +595,7 @@ REGION_CODES = {
         "tid": 165,
         "children": {
             "ad": {
-                "name": "",
+                "name": "广告",
                 "tid": 166,
             },
         },
@@ -589,24 +605,25 @@ REGION_CODES = {
         "tid": 5,
         "children": {
             "variety": {
-                "name": "",
+                "name": "综艺",
                 "tid": 71,
             },
             "talker": {
-                "name": "",
+                "name": "娱乐杂谈",
                 "tid": 241,
             },
             "fans": {
-                "name": "",
+                "name": "粉丝创作",
                 "tid": 242,
             },
             "celebrity": {
-                "name": "",
+                "name": "明星综合",
                 "tid": 137,
             },
             "korea": {
-                "name": "",
+                "name": "Korea相关",
                 "tid": 131,
+                "status": "offline",
             },
         },
     },
@@ -615,23 +632,23 @@ REGION_CODES = {
         "tid": 181,
         "children": {
             "cinecism": {
-                "name": "",
+                "name": "影视杂谈",
                 "tid": 182,
             },
             "montage": {
-                "name": "",
+                "name": "影视剪辑",
                 "tid": 183,
             },
             "shortplay": {
-                "name": "",
+                "name": "小剧场",
                 "tid": 85,
             },
             "trailer_info": {
-                "name": "",
+                "name": "预告·资讯",
                 "tid": 184,
             },
             "shortfilm": {
-                "name": "",
+                "name": "短片",
                 "tid": 256,
             },
         },
@@ -641,19 +658,19 @@ REGION_CODES = {
         "tid": 177,
         "children": {
             "history": {
-                "name": "",
+                "name": "人文·历史",
                 "tid": 37,
             },
             "science": {
-                "name": "",
+                "name": "科学·探索·自然",
                 "tid": 178,
             },
             "military": {
-                "name": "",
+                "name": "军事",
                 "tid": 179,
             },
             "travel": {
-                "name": "",
+                "name": "社会·美食·旅行",
                 "tid": 180,
             },
         },
@@ -662,23 +679,23 @@ REGION_CODES = {
         "name": "电影",
         "children": {
             "tid": {
-                "name": "",
+                "name": "华语电影",
                 "tid": 23,
             },
             "chinese": {
-                "name": "",
+                "name": "欧美电影",
                 "tid": 147,
             },
             "west": {
-                "name": "",
+                "name": "欧美电影",
                 "tid": 145,
             },
             "japan": {
-                "name": "",
+                "name": "日本电影",
                 "tid": 146,
             },
             "movie": {
-                "name": "",
+                "name": "其他国家",
                 "tid": 83,
             },
         },
@@ -688,11 +705,11 @@ REGION_CODES = {
         "tid": 11,
         "children": {
             "mainland": {
-                "name": "",
+                "name": "国产剧",
                 "tid": 185,
             },
             "overseas": {
-                "name": "",
+                "name": "海外剧",
                 "tid": 187,
             },
         },
