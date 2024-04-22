@@ -7,88 +7,111 @@ import uvicorn
 
 from datetime import datetime
 from faker import Faker
+from fastapi import FastAPI
 from pathlib import Path
+from pprint import pformat
+from random import randint
 from typing import Union, Optional
 
-from fastapi import FastAPI
 from pydantic import BaseModel, Field
 from fastapi.responses import HTMLResponse
-from tclogger import logger, OSEnver
+from tclogger import logger
 
 
 from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS as APP_ENVS
+from networks.constants import REGION_CODES
 
 from apps.arg_parser import ArgParser
 
 
-class ArchieveGenerator:
+class ArchiveGenerator:
     def __init__(self):
         self.init_faker()
 
     def init_faker(self):
-        fake = Faker()
-        fake.seed_locale("zh_CN")
+        fake = Faker(locale="zh_CN")
         self.fake = fake
 
-    def get(self, rid: int, idx: int = 0):
-        seed = rid * 1e9 + idx
+    def get_region_name_by_tid(self, tid: int):
+        for key, val in REGION_CODES.items():
+            sub_regions = val["children"]
+            for sub_key, sub_val in sub_regions.items():
+                if sub_val["tid"] == tid:
+                    return sub_val["name"]
+        return None
+
+    def select_from_random_set(self, random_set, length: 1) -> str:
+        return "".join(random.choices(random_set, k=length))
+
+    def random_hex(self, length: int = 40) -> str:
+        random_set = "0123456789abcdef"
+        return self.select_from_random_set(random_set, length)
+
+    def random_lower_ascii(self, length: int = 32):
+        random_set = string.ascii_lowercase + string.digits
+        return self.select_from_random_set(random_set, length)
+
+    def random_ascii(self, length: int = 10):
+        random_set = string.ascii_lowercase + string.ascii_uppercase + string.digits
+        return self.select_from_random_set(random_set, length)
+
+    def random_timestamp(self):
+        t = self.fake.date_time_between_dates(
+            datetime_start=datetime(2006, 6, 26), datetime_end=datetime.now()
+        )
+        return int(t.timestamp())
+
+    def get(self, tid: int, idx: int = 0):
+        seed = tid * 1e9 + idx
         self.fake.seed_instance(seed)
         random.seed(seed)
+
+        aid = randint(1, 1e10)
+        bvid = "BV" + self.random_ascii(10)
+        pubdate = self.random_timestamp()
         res = {
-            "aid": random.randint(1000000000, 2000000000),
-            "videos": random.randint(1, 10),
-            "tid": rid,
-            "tname": "".join(self.fake.word()),
-            "copyright": random.randint(0, 1),
-            "pic": f"http://random.image/{random.randint(100, 999)}.jpg",
-            "title": "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=10)
-            ),
-            "pubdate": int(datetime.now().timestamp()),
-            "ctime": int(datetime.now().timestamp()),
-            "desc": "-",
+            "aid": aid,
+            "videos": randint(1, 10),
+            "tid": tid,
+            "tname": self.get_region_name_by_tid(tid),
+            "copyright": randint(0, 1),
+            "pic": f"http://i1.hdslb.com/bfs/archive/{self.random_hex(40)}.jpg",
+            "title": self.fake.sentence(nb_words=20),
+            "pubdate": pubdate,
+            "ctime": pubdate,
+            "desc": self.fake.sentence(nb_words=40),
             "state": 0,
-            "duration": random.randint(10, 100),
+            "duration": randint(5, 3600),
             "rights": {},
             "owner": {
-                "mid": random.randint(100000000, 200000000),
-                "name": "".join(
-                    random.choices(string.ascii_uppercase + string.digits, k=5)
-                ),
-                "face": f"https://random.face/{random.randint(100, 999)}.jpg",
+                "mid": randint(1, 1e10),
+                "name": self.fake.name(),
+                "face": f"https://i2.hdslb.com/bfs/face/{self.random_hex(40)}.jpg",
             },
             "stat": {
-                "aid": random.randint(1000000000, 2000000000),
-                "view": random.randint(0, 10000),
-                "danmaku": random.randint(0, 1000),
-                "reply": random.randint(0, 1000),
-                "favorite": random.randint(0, 1000),
-                "coin": random.randint(0, 1000),
-                "share": random.randint(0, 1000),
-                "now_rank": random.randint(0, 100),
-                "his_rank": random.randint(0, 100),
-                "like": random.randint(0, 1000),
-                "dislike": random.randint(0, 1000),
+                "aid": aid,
+                "view": randint(0, 1e5),
+                "danmaku": randint(0, 1e3),
+                "reply": randint(0, 1e2),
+                "favorite": randint(0, 1e3),
+                "coin": randint(0, 1e3),
+                "share": randint(0, 1e3),
+                "now_rank": 0,
+                "his_rank": 0,
+                "like": randint(0, 1e3),
+                "dislike": randint(0, 1e3),
                 "vt": 0,
                 "vv": 0,
             },
-            "dynamic": "",
-            "cid": random.randint(1000000000, 2000000000),
-            "dimension": {
-                "width": random.randint(100, 1000),
-                "height": random.randint(100, 2000),
-                "rotate": 0,
-            },
-            "short_link_v2": f"https://b23.tv/{''.join(random.choices(string.ascii_uppercase + string.digits, k=10))}",
-            "up_from_v2": random.randint(10, 50),
-            "first_frame": f"http://http://i0.hdslb.com/bfs/storyff/{random.randint(100, 999)}.jpg",
-            "pub_location": "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=5)
-            ),
+            "dynamic": self.fake.sentence(nb_words=10),
+            "cid": randint(1, 1e10),
+            "dimension": {},
+            "short_link_v2": f"https://b23.tv/{bvid}",
+            "up_from_v2": random.choice([8, 9, 19, 35, 36, 39]),
+            "first_frame": f"http://i0.hdslb.com/bfs/storyff/{self.random_lower_ascii(32)}_firsti.jpg",
+            "pub_location": self.fake.province(),
             "cover43": "",
-            "bvid": "".join(
-                random.choices(string.ascii_uppercase + string.digits, k=10)
-            ),
+            "bvid": bvid,
             "season_type": 0,
             "is_ogv": False,
             "ogv_info": None,
@@ -96,6 +119,8 @@ class ArchieveGenerator:
             "enable_vt": 0,
             "ai_rcmd": None,
         }
+
+        return res
 
 
 class VideoPageAPIMocker:
@@ -121,7 +146,14 @@ class VideoPageAPIMocker:
 app = VideoPageAPIMocker().app
 
 if __name__ == "__main__":
-    args = ArgParser(app_envs=APP_ENVS).args
-    uvicorn.run("__main__:app", host=args.host, port=args.port)
+    # args = ArgParser(app_envs=APP_ENVS).args
+    # uvicorn.run("__main__:app", host=args.host, port=args.port)
+
+    archive_generator = ArchiveGenerator()
+    tid = 95
+    pn, ps = 1, 50
+    idx = pn * (ps - 1)
+    res = archive_generator.get(tid=tid, idx=idx)
+    logger.mesg(pformat(res, indent=4, sort_dicts=False))
 
     # python -m mocks.video_page_api

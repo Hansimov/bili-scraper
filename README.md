@@ -6,13 +6,13 @@ Scrape data of videos and users from Bilibili
 Regions:
 
 - https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_zone.html
+- https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html#%E8%8E%B7%E5%8F%96%E8%A7%86%E9%A2%91%E8%AF%A6%E7%BB%86%E4%BF%A1%E6%81%AF-web%E7%AB%AF
 
 
 ## JSON format
 
 JSON fields:
 
-- https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html
 - http://api.bilibili.com/x/web-interface/newlist?rid=95&pn=1&ps=50
 
 ```json
