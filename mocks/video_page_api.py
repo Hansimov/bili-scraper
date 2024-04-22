@@ -1,27 +1,21 @@
 import pandas as pd
 import random
 import string
-
-import uuid
 import uvicorn
 
 from datetime import datetime
 from faker import Faker
-from fastapi import FastAPI
-from pathlib import Path
+from fastapi import FastAPI, Body
 from pprint import pformat
+from pydantic import BaseModel, Field
 from random import randint
+from tclogger import logger
 from typing import Union, Optional
 
-from pydantic import BaseModel, Field
-from fastapi.responses import HTMLResponse
-from tclogger import logger
-
-
-from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS as APP_ENVS
-from networks.constants import REGION_CODES
 
 from apps.arg_parser import ArgParser
+from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS as APP_ENVS
+from networks.constants import REGION_CODES
 
 
 class ArchiveGenerator:
@@ -131,10 +125,29 @@ class VideoPageAPIMocker:
             swagger_ui_parameters={"defaultModelsExpandDepth": -1},
             version=APP_ENVS["version"],
         )
+        self.archive_generator = ArchiveGenerator()
         self.setup_routes()
 
-    def page_info(self):
-        return {}
+    def page_info(
+        self,
+        tid: int = Body(),
+        pn: Optional[int] = Body(1),
+        ps: Optional[int] = Body(50),
+    ):
+        res = {
+            "code": 0,
+            "message": "0",
+            "ttl": 1,
+            "data": {
+                "archives": [],
+                "page": {"count": randint(1e4, 1e7), "num": pn, "size": ps},
+            },
+        }
+        for i in range(ps):
+            idx = pn * (ps - 1) + i
+            archive = self.archive_generator.get(tid=tid, idx=idx)
+            res["data"]["archives"].append(archive)
+        return res
 
     def setup_routes(self):
         self.app.post(
@@ -146,14 +159,14 @@ class VideoPageAPIMocker:
 app = VideoPageAPIMocker().app
 
 if __name__ == "__main__":
-    # args = ArgParser(app_envs=APP_ENVS).args
-    # uvicorn.run("__main__:app", host=args.host, port=args.port)
+    args = ArgParser(app_envs=APP_ENVS).args
+    uvicorn.run("__main__:app", host=args.host, port=args.port)
 
-    archive_generator = ArchiveGenerator()
-    tid = 95
-    pn, ps = 1, 50
-    idx = pn * (ps - 1)
-    res = archive_generator.get(tid=tid, idx=idx)
-    logger.mesg(pformat(res, indent=4, sort_dicts=False))
+    # archive_generator = ArchiveGenerator()
+    # tid = 95
+    # pn, ps = 1, 50
+    # idx = pn * (ps - 1)
+    # res = archive_generator.get(tid=tid, idx=idx)
+    # logger.mesg(pformat(res, indent=4, sort_dicts=False))
 
     # python -m mocks.video_page_api
