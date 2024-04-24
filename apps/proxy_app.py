@@ -1,19 +1,14 @@
-import argparse
-import markdown2
 import pandas as pd
-import sys
 import uvicorn
 
-from pathlib import Path
-from typing import Union, Optional
+from typing import Optional
 
 from fastapi import FastAPI
-from pydantic import BaseModel, Field
-from fastapi.responses import HTMLResponse
-from tclogger import logger, OSEnver
+from tclogger import logger
 
-from networks.proxy_pool import ProxyPool, ProxyBenchmarker
+from apps.arg_parser import ArgParser
 from configs.envs import PROXY_APP_ENVS
+from networks.proxy_pool import ProxyPool, ProxyBenchmarker
 
 
 class ProxiesDatabase:
@@ -52,6 +47,7 @@ class ProxyApp:
         )
         self.db = ProxiesDatabase()
         self.setup_routes()
+        logger.success(f"> {PROXY_APP_ENVS['app_name']} - v{PROXY_APP_ENVS['version']}")
 
     def refresh_proxies(self):
         logger.note(f"> Refreshing proxies")
@@ -68,13 +64,20 @@ class ProxyApp:
     def get_all_proxies(self):
         logger.note(f"> Return all proxies")
 
-    def get_proxy(self):
+    def get_proxy(self, mock: Optional[bool] = False):
         logger.note(f"> Return a random proxy")
-        res = {
-            "server": "test",
-            "latency": 0.0,
-            "status": "ok",
-        }
+        if mock:
+            res = {
+                "server": "",
+                "latency": 0.0,
+                "status": "ok",
+            }
+        else:
+            res = {
+                "server": "test",
+                "latency": 0.0,
+                "status": "ok",
+            }
         return res
 
     def del_proxy(self, server: str):
@@ -93,7 +96,7 @@ class ProxyApp:
 
         self.app.get(
             "/get_proxy",
-            summary="Get a proxy",
+            summary="Get a usable proxy",
         )(self.get_proxy)
 
         self.app.delete(
@@ -107,32 +110,13 @@ class ProxyApp:
         )(self.refresh_proxies)
 
 
-class ArgParser(argparse.ArgumentParser):
-    def __init__(self, *args, **kwargs):
-        super(ArgParser, self).__init__(*args, **kwargs)
-
-        self.add_argument(
-            "-s",
-            "--host",
-            type=str,
-            default=PROXY_APP_ENVS["host"],
-            help=f"Host ({PROXY_APP_ENVS['host']}) for {PROXY_APP_ENVS['app_name']}",
-        )
-        self.add_argument(
-            "-p",
-            "--port",
-            type=int,
-            default=PROXY_APP_ENVS["port"],
-            help=f"Port ({PROXY_APP_ENVS['port']}) for {PROXY_APP_ENVS['app_name']}",
-        )
-
-        self.args = self.parse_args(sys.argv[1:])
-
-
 app = ProxyApp().app
 
 if __name__ == "__main__":
-    args = ArgParser().args
-    uvicorn.run("__main__:app", host=args.host, port=args.port)
+    args = ArgParser(app_envs=PROXY_APP_ENVS).args
+    if args.reload:
+        uvicorn.run("__main__:app", host=args.host, port=args.port, reload=True)
+    else:
+        uvicorn.run("__main__:app", host=args.host, port=args.port)
 
     # python -m apps.proxy_app
