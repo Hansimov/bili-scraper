@@ -1,30 +1,53 @@
 import requests
+
+from random import randint
 from tclogger import logger
-from .constants import REQUESTS_HEADERS
+
+from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API
+from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS
 
 
 class VideoPageFetcher:
-    def __init__(self):
-        self.api_body = (
-            "http://api.bilibili.com/x/web-interface/newlist?rid={}&pn={}&ps={}"
-        )
-
-    def get(self, rid: int, pn: int, ps: int = 50, proxy=None):
+    def get(self, tid: int, pn: int, ps: int = 50, proxy=None, mock: bool = False):
         if proxy:
             proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
         else:
             proxies = None
 
-        url = self.api_body.format(rid, pn, ps)
-        logger.note(f"> rid: {rid} | pn: {pn} - Fetching video page list", end=" ")
-        res = requests.get(url, headers=REQUESTS_HEADERS, proxies=proxies, timeout=10)
-        if res.status_code == 200:
-            logger.success(f"[{res.status_code}]")
+        if mock:
+            url = f"http://127.0.0.1:{VIDEO_PAGE_API_MOCKER_ENVS['port']}/page_info"
         else:
-            logger.err(f"[{res.status_code}]")
-            logger.err(f"{res.text}")
-        data = res.json()
-        return data
+            url = GET_VIDEO_PAGE_API
+
+        params = {"tid": tid, "pn": pn, "ps": ps}
+
+        try:
+            res = requests.get(
+                url, headers=REQUESTS_HEADERS, params=params, proxies=proxies, timeout=5
+            )
+            if res.status_code == 200:
+                res_json = res.json()
+            else:
+                res_json = {
+                    "code": res.status_code,
+                    "message": res.text,
+                    "ttl": 1,
+                    "data": {
+                        "archives": [],
+                        "page": {"count": randint(1e4, 1e7), "num": pn, "size": ps},
+                    },
+                }
+        except Exception as e:
+            res_json = {
+                "code": -1,
+                "message": str(e),
+                "ttl": 1,
+                "data": {
+                    "archives": [],
+                    "page": {"count": randint(1e4, 1e7), "num": pn, "size": ps},
+                },
+            }
+        return res_json
 
 
 if __name__ == "__main__":
