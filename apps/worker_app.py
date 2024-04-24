@@ -21,6 +21,9 @@ class WorkerApp:
             version=WORKER_APP_ENVS["version"],
         )
         self.setup_routes()
+        logger.success(
+            f"> {WORKER_APP_ENVS['app_name']} - v{WORKER_APP_ENVS['version']}"
+        )
 
     def get_page_info(
         self,
