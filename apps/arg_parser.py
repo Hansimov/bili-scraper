@@ -24,5 +24,11 @@ class ArgParser(argparse.ArgumentParser):
             default=app_envs["port"],
             help=f"Port ({self.port}) for {self.app_name}",
         )
+        self.add_argument(
+            "-r",
+            "--reload",
+            action="store_true",
+            help="Reload server on code change",
+        )
 
         self.args = self.parse_args(sys.argv[1:])

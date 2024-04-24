@@ -1,6 +1,6 @@
 import argparse
-import markdown2
 import pandas as pd
+import requests
 import sys
 import uuid
 import uvicorn
@@ -8,14 +8,13 @@ import uvicorn
 from pathlib import Path
 from typing import Union, Optional
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
 from pydantic import BaseModel, Field
-from fastapi.responses import HTMLResponse
 from tclogger import logger, OSEnver
 
+from apps.arg_parser import ArgParser
 from networks.proxy_pool import ProxyPool, ProxyBenchmarker
-from networks.video_page import VideoPageFetcher
-from configs.envs import SCHEDULER_APP_ENVS
+from configs.envs import SCHEDULER_APP_ENVS, WORKER_APP_ENVS
 
 
 class SchedulerApp:
@@ -26,18 +25,27 @@ class SchedulerApp:
             swagger_ui_parameters={"defaultModelsExpandDepth": -1},
             version=SCHEDULER_APP_ENVS["version"],
         )
+        self.worker_app_endpoint = f"http://127.0.0.1:{WORKER_APP_ENVS['port']}"
         self.setup_routes()
 
-    def next_task_params(self):
-        pass
-
-    def new_worker(self, task_params: dict):
+    def new_task(
+        self,
+        tid: int = Body(),
+        pn: Optional[int] = Body(1),
+        ps: Optional[int] = Body(50),
+        mock: Optional[bool] = Body(True),
+    ):
         worker_id = str(uuid.uuid4())
-        logger.note(f"New worker: {worker_id}")
-        logger.mesg(task_params)
-
-    def remove_worker(self, worker_id: str):
-        pass
+        logger.note(f"> New worker: {worker_id}")
+        logger.mesg(f"> Params    : tid={tid}, pn={pn}, ps={ps}")
+        # post to worker app endpoint
+        url = f"{self.worker_app_endpoint}/get_page_info"
+        data = {"tid": tid, "pn": pn, "ps": ps, "mock": mock}
+        res = requests.get(url, params=data)
+        res_data = res.json()
+        logger.note(f"> Response  :")
+        logger.mesg(res_data)
+        return res_data
 
     class VideoInfoPostItem(BaseModel):
         code: int = Field(default=0)
@@ -52,19 +60,9 @@ class SchedulerApp:
 
     def setup_routes(self):
         self.app.post(
-            "/next_task_params",
-            summary="Determine next task by: Region(tid), Page idx (pn), Page size (ps)",
-        )(self.next_task_params)
-
-        self.app.post(
-            "/new_worker",
-            summary="Create new worker by: Region(tid), Page idx (pn), Page size (ps)",
-        )(self.new_worker)
-
-        self.app.post(
-            "remove_worker",
-            summary="Remove worker by: Worker id",
-        )(self.remove_worker)
+            "/new_task",
+            summary="Create new task by: Region(tid), Page idx (pn), Page size (ps)",
+        )(self.new_task)
 
         self.app.post(
             "/save_video_info",
@@ -72,32 +70,13 @@ class SchedulerApp:
         )(self.save_video_info)
 
 
-class ArgParser(argparse.ArgumentParser):
-    def __init__(self, *args, **kwargs):
-        super(ArgParser, self).__init__(*args, **kwargs)
-
-        self.add_argument(
-            "-s",
-            "--host",
-            type=str,
-            default=SCHEDULER_APP_ENVS["host"],
-            help=f"Host ({SCHEDULER_APP_ENVS['host']}) for {SCHEDULER_APP_ENVS['app_name']}",
-        )
-        self.add_argument(
-            "-p",
-            "--port",
-            type=int,
-            default=SCHEDULER_APP_ENVS["port"],
-            help=f"Port ({SCHEDULER_APP_ENVS['port']}) for {SCHEDULER_APP_ENVS['app_name']}",
-        )
-
-        self.args = self.parse_args(sys.argv[1:])
-
-
 app = SchedulerApp().app
 
 if __name__ == "__main__":
-    args = ArgParser().args
-    uvicorn.run("__main__:app", host=args.host, port=args.port)
+    args = ArgParser(app_envs=SCHEDULER_APP_ENVS).args
+    if args.reload:
+        uvicorn.run("__main__:app", host=args.host, port=args.port, reload=True)
+    else:
+        uvicorn.run("__main__:app", host=args.host, port=args.port)
 
     # python -m apps.scheduler_app
