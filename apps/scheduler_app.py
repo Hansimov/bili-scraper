@@ -9,9 +9,10 @@ from pydantic import BaseModel, Field
 from tclogger import logger
 
 from apps.arg_parser import ArgParser
-from networks.proxy_pool import ProxyPool, ProxyBenchmarker
-from configs.envs import SCHEDULER_APP_ENVS, WORKER_APP_ENVS
 from networks.constants import REGION_CODES
+from networks.proxy_pool import ProxyPool, ProxyBenchmarker
+from networks.video_page import VideoPageFetcher
+from configs.envs import SCHEDULER_APP_ENVS, WORKER_APP_ENVS
 
 
 class SchedulerApp:
@@ -22,9 +23,11 @@ class SchedulerApp:
             swagger_ui_parameters={"defaultModelsExpandDepth": -1},
             version=SCHEDULER_APP_ENVS["version"],
         )
-        self.worker_app_endpoint = f"http://127.0.0.1:{WORKER_APP_ENVS['port']}"
         self.init_tids()
         self.setup_routes()
+        logger.success(
+            f"> {SCHEDULER_APP_ENVS['app_name']} - v{SCHEDULER_APP_ENVS['version']}"
+        )
 
     def init_tids(self):
         self.tid_idx = 0
@@ -52,17 +55,16 @@ class SchedulerApp:
             res_json = {"code": 200, "message": "Tasks finished", "data": {}}
             return res_json
 
-        # post to worker app endpoint
-        url = f"{self.worker_app_endpoint}/get_page_info"
-        params = {"tid": tid, "pn": pn, "ps": ps, "mock": mock}
-        try:
-            res = requests.get(url, params=params)
-            res_json = res.json()
-            archives = res_json["data"].get("archives", [])
-            logger.success(f"[{len(archives)}]")
-        except Exception as e:
-            logger.warn(f"[{e}]")
-            res_json = {"code": 500, "message": str(e), "data": {}}
+        # fetch video page info
+        fetcher = VideoPageFetcher()
+        res_json = fetcher.get(tid=tid, pn=pn, ps=ps, mock=mock)
+        archives = res_json.get("data", {}).get("archives", [])
+        res_code = res_json.get("code", -1)
+        if res_code == 0 and len(archives) > 0:
+            logger.success(f"[code={res_code}]")
+        else:
+            logger.warn(f"[code={res_code}]")
+            logger.warn(f"{res_json.get('message', '')}")
         return res_json
 
     def next_task_params(self, tid: int, pn: int, archieve_len: int = 0):
