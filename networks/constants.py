@@ -2,6 +2,7 @@ REQUESTS_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/123.0.0.0 Safari/537.36"
 }
 
+GET_VIDEO_PAGE_API = "http://api.bilibili.com/x/web-interface/newlist"
 
 # https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_zone.html
 REGION_CODES = {
