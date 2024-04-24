@@ -140,6 +140,8 @@ class VideoPageAPIMocker:
         }
         for i in range(ps):
             idx = pn * (ps - 1) + i
+            if idx > 1e4:
+                break
             archive = self.archive_generator.get(tid=tid, idx=idx)
             res["data"]["archives"].append(archive)
         return res

@@ -1,20 +1,17 @@
-import argparse
 import pandas as pd
 import requests
-import sys
-import uuid
 import uvicorn
 
-from pathlib import Path
 from typing import Union, Optional
 
 from fastapi import FastAPI, Body
 from pydantic import BaseModel, Field
-from tclogger import logger, OSEnver
+from tclogger import logger
 
 from apps.arg_parser import ArgParser
 from networks.proxy_pool import ProxyPool, ProxyBenchmarker
 from configs.envs import SCHEDULER_APP_ENVS, WORKER_APP_ENVS
+from networks.constants import REGION_CODES
 
 
 class SchedulerApp:
@@ -26,7 +23,19 @@ class SchedulerApp:
             version=SCHEDULER_APP_ENVS["version"],
         )
         self.worker_app_endpoint = f"http://127.0.0.1:{WORKER_APP_ENVS['port']}"
+        self.init_tids()
         self.setup_routes()
+
+    def init_tids(self):
+        self.tid_idx = 0
+        self.region_codes = ["game", "knowledge", "tech"]
+        main_regions = [REGION_CODES[region_code] for region_code in self.region_codes]
+        self.tids = [
+            sub_region["tid"]
+            for main_region in main_regions
+            for sub_region in main_region["children"].values()
+        ]
+        logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
 
     def new_task(
         self,
@@ -35,17 +44,39 @@ class SchedulerApp:
         ps: Optional[int] = Body(50),
         mock: Optional[bool] = Body(True),
     ):
-        worker_id = str(uuid.uuid4())
-        logger.note(f"> New worker: {worker_id}")
-        logger.mesg(f"> Params    : tid={tid}, pn={pn}, ps={ps}")
+        logger.mesg(f"> GET: tid={tid}, pn={pn}, ps={ps}", end=" => ")
+
+        # if tid == -1, then no more tasks
+        if tid == -1:
+            logger.success(f"[Finished]")
+            res_json = {"code": 200, "message": "Tasks finished", "data": {}}
+            return res_json
+
         # post to worker app endpoint
         url = f"{self.worker_app_endpoint}/get_page_info"
-        data = {"tid": tid, "pn": pn, "ps": ps, "mock": mock}
-        res = requests.get(url, params=data)
-        res_data = res.json()
-        logger.note(f"> Response  :")
-        logger.mesg(res_data)
-        return res_data
+        params = {"tid": tid, "pn": pn, "ps": ps, "mock": mock}
+        try:
+            res = requests.get(url, params=params)
+            res_json = res.json()
+            archives = res_json["data"].get("archives", [])
+            logger.success(f"[{len(archives)}]")
+        except Exception as e:
+            logger.warn(f"[{e}]")
+            res_json = {"code": 500, "message": str(e), "data": {}}
+        return res_json
+
+    def next_task_params(self, tid: int, pn: int, archieve_len: int = 0):
+        if archieve_len > 0:
+            pn += 1
+        else:
+            self.tid_idx += 1
+            if self.tid_idx < len(self.tids):
+                tid = self.tids[self.tid_idx]
+                pn = 1
+            else:
+                tid = -1
+                pn = -1
+        return tid, pn
 
     class VideoInfoPostItem(BaseModel):
         code: int = Field(default=0)
