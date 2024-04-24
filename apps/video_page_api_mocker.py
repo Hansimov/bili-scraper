@@ -128,12 +128,7 @@ class VideoPageAPIMocker:
         self.archive_generator = ArchiveGenerator()
         self.setup_routes()
 
-    def page_info(
-        self,
-        tid: int = Body(),
-        pn: Optional[int] = Body(1),
-        ps: Optional[int] = Body(50),
-    ):
+    def page_info(self, tid: int, pn: Optional[int] = 1, ps: Optional[int] = 50):
         res = {
             "code": 0,
             "message": "0",
@@ -150,7 +145,7 @@ class VideoPageAPIMocker:
         return res
 
     def setup_routes(self):
-        self.app.post(
+        self.app.get(
             "/page_info",
             summary="Return video page info by: Region(tid), Page idx (pn), Page size (ps)",
         )(self.page_info)
@@ -160,7 +155,10 @@ app = VideoPageAPIMocker().app
 
 if __name__ == "__main__":
     args = ArgParser(app_envs=APP_ENVS).args
-    uvicorn.run("__main__:app", host=args.host, port=args.port)
+    if args.reload:
+        uvicorn.run("__main__:app", host=args.host, port=args.port, reload=True)
+    else:
+        uvicorn.run("__main__:app", host=args.host, port=args.port)
 
     # archive_generator = ArchiveGenerator()
     # tid = 95
@@ -169,4 +167,4 @@ if __name__ == "__main__":
     # res = archive_generator.get(tid=tid, idx=idx)
     # logger.mesg(pformat(res, indent=4, sort_dicts=False))
 
-    # python -m mocks.video_page_api
+    # python -m apps.video_page_api_mocker
