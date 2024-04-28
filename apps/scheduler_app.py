@@ -9,10 +9,10 @@ from pydantic import BaseModel, Field
 from tclogger import logger
 
 from apps.arg_parser import ArgParser
-from networks.constants import REGION_CODES
 from networks.proxy_pool import ProxyPool, ProxyBenchmarker
 from networks.video_page import VideoPageFetcher
 from configs.envs import SCHEDULER_APP_ENVS, WORKER_APP_ENVS
+from networks.worker_params_generator import WorkerParamsGenerator
 
 
 class SchedulerApp:
@@ -23,22 +23,11 @@ class SchedulerApp:
             swagger_ui_parameters={"defaultModelsExpandDepth": -1},
             version=SCHEDULER_APP_ENVS["version"],
         )
-        self.init_tids()
         self.setup_routes()
+        self.worker_params_generator = WorkerParamsGenerator()
         logger.success(
             f"> {SCHEDULER_APP_ENVS['app_name']} - v{SCHEDULER_APP_ENVS['version']}"
         )
-
-    def init_tids(self):
-        self.tid_idx = 0
-        self.region_codes = ["game", "knowledge", "tech"]
-        main_regions = [REGION_CODES[region_code] for region_code in self.region_codes]
-        self.tids = [
-            sub_region["tid"]
-            for main_region in main_regions
-            for sub_region in main_region["children"].values()
-        ]
-        logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
 
     def new_task(
         self,
@@ -66,19 +55,6 @@ class SchedulerApp:
             logger.warn(f"[code={res_code}]")
             logger.warn(f"{res_json.get('message', '')}")
         return res_json
-
-    def next_task_params(self, tid: int, pn: int, archieve_len: int = 0):
-        if archieve_len > 0:
-            pn += 1
-        else:
-            self.tid_idx += 1
-            if self.tid_idx < len(self.tids):
-                tid = self.tids[self.tid_idx]
-                pn = 1
-            else:
-                tid = -1
-                pn = -1
-        return tid, pn
 
     class VideoInfoPostItem(BaseModel):
         code: int = Field(default=0)
