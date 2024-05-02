@@ -65,19 +65,24 @@ class ProxyApp:
         logger.note(f"> Return all proxies")
 
     def get_proxy(self, mock: Optional[bool] = False):
-        logger.note(f"> Return a random proxy")
         if mock:
             res = {
-                "server": "",
+                "server": "mock",
                 "latency": 0.0,
                 "status": "ok",
             }
         else:
+            # TODO: determine the best proxy to return
+            row = self.db.df.sample(n=1)
             res = {
-                "server": "test",
-                "latency": 0.0,
+                "server": row["server"].values[0],
+                "latency": row["latency"].values[0],
                 "status": "ok",
             }
+
+        logger.note(f"> Return a random proxy:", end=" ")
+        logger.mesg(res["server"])
+
         return res
 
     def del_proxy(self, server: str):
