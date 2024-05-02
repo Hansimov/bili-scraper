@@ -1,4 +1,5 @@
 import asyncio
+from random import randint
 import requests
 import uvicorn
 
@@ -49,6 +50,11 @@ class WorkerParamsGenerator:
     async def flag_current_region_exhausted(self):
         self.is_current_region_exhausted = True
 
+    async def is_terminated(self):
+        if self.tid == -1 and self.pn == -1:
+            return True
+        return False
+
     async def next(self):
         if not self.is_current_region_exhausted:
             self.pn += 1
@@ -68,14 +74,14 @@ class Worker:
     def __init__(
         self,
         generator: WorkerParamsGenerator,
-        condition: asyncio.Condition,
+        lock: asyncio.Lock,
         wid: int = -1,
         proxy: str = None,
         mock: bool = False,
     ):
         self.wid = wid
         self.generator = generator
-        self.condition = condition
+        self.lock = lock
         self.proxy = proxy
         self.mock = mock
         self.active = False
@@ -148,35 +154,36 @@ class Worker:
 
     async def run(self):
         if not self.proxy:
-            async with self.condition:
+            async with self.lock:
                 await self.get_proxy()
-                self.condition.notify_all()
 
         while True:
             if not self.active:
-                # await asyncio.sleep(20)
-                # continue
                 break
 
-            async with self.condition:
+            async with self.lock:
+                if await self.generator.is_terminated():
+                    self.active = False
+                    break
+
+            async with self.lock:
                 tid, pn = await self.generator.next()
-                self.condition.notify_all()
 
             region_name = self.generator.get_region().get("name", "Unknown")
             logger.note(
                 f"> GET: wid={self.wid}, tid={tid}, pn={pn}, region={region_name}",
                 end=" => ",
             )
-            if tid == -1 or pn == -1:
+            if tid == -1 and pn == -1:
+                logger.success(f"[Finished]")
                 break
 
             res_json = self.get_page(tid=tid, pn=pn)
             archives = res_json.get("data", {}).get("archives", [])
 
             if len(archives) == 0:
-                async with self.condition:
+                async with self.lock:
                     await self.generator.flag_current_region_exhausted()
-                    self.condition.notify_all()
 
             res_code = res_json.get("code", -1)
 
@@ -190,9 +197,7 @@ class Worker:
                 logger.warn(f"[code={res_code}]")
                 logger.warn(f"{res_json.get('message', '')}")
 
-            logger.mesg(f"Worker {self.wid} sleep start")
-            await asyncio.sleep(1)
-            logger.mesg(f"Worker {self.wid} sleep end")
+            await asyncio.sleep(randint(0,1))
 
 
 class WorkersApp:
@@ -206,7 +211,7 @@ class WorkersApp:
         self.setup_routes()
         self.workers = []
         self.generator = None
-        self.condition = asyncio.Condition()
+        self.lock = asyncio.Lock()
         logger.success(
             f"> {WORKER_APP_ENVS['app_name']} - v{WORKER_APP_ENVS['version']}"
         )
@@ -216,9 +221,7 @@ class WorkersApp:
     ):
         self.workers = []
         for i in range(max_workers):
-            worker = Worker(
-                wid=i, generator=self.generator, condition=self.condition, mock=mock
-            )
+            worker = Worker(wid=i, generator=self.generator, lock=self.lock, mock=mock)
             self.workers.append(worker)
 
     async def start(
