@@ -138,12 +138,11 @@ class VideoPageAPIMocker:
                 "page": {"count": randint(1e4, 1e7), "num": pn, "size": ps},
             },
         }
-        for i in range(ps):
-            idx = pn * (ps - 1) + i
-            if idx > 1e4:
-                break
-            archive = self.archive_generator.get(tid=tid, idx=idx)
-            res["data"]["archives"].append(archive)
+        if pn <= 15:
+            for i in range(ps):
+                idx = pn * (ps - 1) + i
+                archive = self.archive_generator.get(tid=tid, idx=idx)
+                res["data"]["archives"].append(archive)
         return res
 
     def setup_routes(self):

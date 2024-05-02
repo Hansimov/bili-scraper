@@ -284,10 +284,6 @@ REGION_CODES = {
                 "name": "科工机械",
                 "tid": 232,
             },
-            "design": {
-                "name": "",
-                "tid": 229,
-            },
             "diy": {
                 "name": "极客DIY",
                 "tid": 233,
