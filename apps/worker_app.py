@@ -17,7 +17,7 @@ class WorkerParamsGenerator:
     def __init__(self, region_codes: list[str] = [], mock: bool = False):
         self.mock = mock
         self.region_codes = region_codes
-        self.lock = asyncio.Lock()
+
         self.init_tids()
 
     def init_tids(self):
@@ -29,7 +29,8 @@ class WorkerParamsGenerator:
             for region in main_region["children"].values()
         ]
         self.tids = [region["tid"] for region in self.regions]
-        self.pn = 1
+        self.is_current_region_exhausted = False
+        self.pn = 0
         self.tid = self.get_tid()
         logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
 
@@ -45,8 +46,11 @@ class WorkerParamsGenerator:
         else:
             return -1
 
-    def next(self, archieve_len: int = 0):
-        if archieve_len > 0:
+    async def flag_current_region_exhausted(self):
+        self.is_current_region_exhausted = True
+
+    async def next(self):
+        if not self.is_current_region_exhausted:
             self.pn += 1
         else:
             self.tid_idx += 1
@@ -56,6 +60,7 @@ class WorkerParamsGenerator:
             else:
                 self.tid = -1
                 self.pn = -1
+            self.is_current_region_exhausted = False
         return self.tid, self.pn
 
 
@@ -63,17 +68,19 @@ class Worker:
     def __init__(
         self,
         generator: WorkerParamsGenerator,
+        condition: asyncio.Condition,
         wid: int = -1,
         proxy: str = None,
         mock: bool = False,
     ):
         self.wid = wid
         self.generator = generator
+        self.condition = condition
         self.proxy = proxy
         self.mock = mock
         self.active = False
 
-    def get_proxy(self):
+    async def get_proxy(self):
         proxy_api = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}/get_proxy"
         params = {"mock": self.mock}
         try:
@@ -141,11 +148,9 @@ class Worker:
 
     async def run(self):
         if not self.proxy:
-            self.get_proxy()
-
-        archives = [{}]
-        async with self.generator.lock:
-            tid, pn = self.generator.next(archieve_len=len(archives))
+            async with self.condition:
+                await self.get_proxy()
+                self.condition.notify_all()
 
         while True:
             if not self.active:
@@ -153,13 +158,26 @@ class Worker:
                 # continue
                 break
 
+            async with self.condition:
+                tid, pn = await self.generator.next()
+                self.condition.notify_all()
+
             region_name = self.generator.get_region().get("name", "Unknown")
-            logger.note(f"> GET: tid={tid}, pn={pn}, region={region_name}", end=" => ")
+            logger.note(
+                f"> GET: wid={self.wid}, tid={tid}, pn={pn}, region={region_name}",
+                end=" => ",
+            )
             if tid == -1 or pn == -1:
                 break
 
             res_json = self.get_page(tid=tid, pn=pn)
             archives = res_json.get("data", {}).get("archives", [])
+
+            if len(archives) == 0:
+                async with self.condition:
+                    await self.generator.flag_current_region_exhausted()
+                    self.condition.notify_all()
+
             res_code = res_json.get("code", -1)
 
             if res_code == 0:
@@ -172,10 +190,9 @@ class Worker:
                 logger.warn(f"[code={res_code}]")
                 logger.warn(f"{res_json.get('message', '')}")
 
-            async with self.generator.lock:
-                tid, pn = self.generator.next(archieve_len=len(archives))
-
-            asyncio.sleep(1)
+            logger.mesg(f"Worker {self.wid} sleep start")
+            await asyncio.sleep(1)
+            logger.mesg(f"Worker {self.wid} sleep end")
 
 
 class WorkersApp:
@@ -189,6 +206,7 @@ class WorkersApp:
         self.setup_routes()
         self.workers = []
         self.generator = None
+        self.condition = asyncio.Condition()
         logger.success(
             f"> {WORKER_APP_ENVS['app_name']} - v{WORKER_APP_ENVS['version']}"
         )
@@ -198,7 +216,9 @@ class WorkersApp:
     ):
         self.workers = []
         for i in range(max_workers):
-            worker = Worker(wid=i, generator=self.generator, mock=mock)
+            worker = Worker(
+                wid=i, generator=self.generator, condition=self.condition, mock=mock
+            )
             self.workers.append(worker)
 
     async def start(
