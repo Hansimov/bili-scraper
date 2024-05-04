@@ -12,3 +12,4 @@ VIDEO_PAGE_API_MOCKER_ENVS = OSEnver(envs_path)["video_page_api_mocker"]
 
 secrets_path = configs_root / "secrets.json"
 SECRETS = OSEnver(secrets_path)
+SQL_ENVS = SECRETS["sql"]
