@@ -2,6 +2,7 @@ Faker
 fastapi
 markdown2
 pandas
+psycopg2-binary
 pydantic
 Requests
 tclogger
