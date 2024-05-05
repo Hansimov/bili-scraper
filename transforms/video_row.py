@@ -54,12 +54,9 @@ class VideoInfoItem:
         "cover43": str,  # NOT SURE: cover image url with 4:3 aspect ratio
     }
 
-    IGNORED_COLUMNS = {
+    OTHER_COLUMNS = {
         "rights": dict,  # rights
         "dimension": dict,  # dimension of video resolution
-    }
-
-    OTHER_COLUMNS = {
         "state": int,  # binary flag bits for video permissions and states, combined with OR
         "up_from_v2": int,  # NO SURE: seems to be the original region code before upgraded to api v2
         "season_type": int,  # season type
@@ -70,14 +67,28 @@ class VideoInfoItem:
         "ai_rcmd": dict,  # ai recommendation
     }
 
+    EXTRA_COLUMNS = {
+        "inserted_at": int,
+    }
+
+    COLUMNS_SQL_MAP = {
+        "pubdate": "timestamp",
+        "ctime": "timestamp",
+        "inserted_at": "timestamp",
+    }
+    COLUMNS_RENAME_MAP = {
+        "desc": "description",
+        "like": "thumb_up",
+    }
+
     COLUMNS = {
         **ID_COLUMNS,
         **OWNER_COLUMNS,
         **STATS_COLUMNS,
         **META_COLUMNS,
         **MEDIA_COLUMNS,
-        # **IGNORED_COLUMNS,
         **OTHER_COLUMNS,
+        **EXTRA_COLUMNS,
     }
 
     def __init__(self):

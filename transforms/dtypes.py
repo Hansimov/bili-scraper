@@ -15,6 +15,9 @@ class DataTyper:
         dict: "json",
     }
 
+    def py_dtype_to_sql_dtype(self, py_dtype):
+        return DataTyper.DTYPES.get(py_dtype, None)
+
     def py_val_to_sql_dtype(self, val):
         py_dtype = type(val)
         sql_dtype = DataTyper.DTYPES.get(py_dtype, None)
