@@ -15,9 +15,7 @@ class SQLOperator:
         self.connect()
 
     def connect(self):
-        logger.note(
-            f"> Connecting to: {self.host}:{self.port} [{self.dbname}] as ({self.user})"
-        )
+        logger.note(f"> Connecting to: {self.host}:{self.port} ...")
         self.conn = psycopg2.connect(
             host=self.host,
             port=self.port,
@@ -26,7 +24,7 @@ class SQLOperator:
             password=self.password,
         )
         self.cur = self.conn.cursor()
-        logger.success(f"+ Connected to [{self.dbname}] as ({self.user})", indent=2)
+        logger.success(f"+ Connected to [{self.dbname}] as ({self.user})")
 
     def exec(self, cmd: str):
         self.cur.execute(cmd)
@@ -48,6 +46,10 @@ class SQLOperator:
         except Exception as e:
             logger.warn(f"{e}")
             return False
+
+    def __del__(self):
+        self.close()
+        logger.success(f"- Disconnected: {self.host}:{self.port}")
 
 
 if __name__ == "__main__":
