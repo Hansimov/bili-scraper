@@ -167,7 +167,7 @@ class VideoInfoConverter:
         new_sql_values = tuple(new_sql_values)
         return new_sql_values
 
-    def to_sql_query_and_values(self, video_info: dict, table_name: str = "videos"):
+    def to_sql_query_and_values(self, video_info: dict, table_name: str = "bili_videos"):
         """Basic module usage - Psycopg 2.9.9 documentation:
         - https://www.psycopg.org/docs/usage.html#passing-parameters-to-sql-queries
         - https://www.psycopg.org/docs/usage.html#adaptation-of-python-values-to-sql-types

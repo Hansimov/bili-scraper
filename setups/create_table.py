@@ -4,7 +4,7 @@ from transforms.dtypes import DataTyper
 from networks.sql import SQLOperator
 
 
-def create_video_info_table(table_name: str = "videos"):
+def create_video_info_table(table_name: str = "bili_videos"):
     """This script would only run once, to create sql table with required columns."""
 
     py_columns = VideoInfoConverter.COLUMNS

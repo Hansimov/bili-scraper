@@ -32,7 +32,8 @@ class SQLOperator:
             res = self.cur.fetchall()
         except Exception as e:
             res = None
-            logger.warn(e)
+            if "no results to fetch" not in str(e):
+                logger.warn(e)
         self.conn.commit()
         return res
 
