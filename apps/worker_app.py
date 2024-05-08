@@ -122,7 +122,7 @@ class Worker:
         else:
             url = GET_VIDEO_PAGE_API
 
-        params = {"tid": tid, "pn": pn, "ps": ps}
+        params = {"rid": tid, "pn": pn, "ps": ps}
 
         try:
             res = requests.get(
@@ -197,7 +197,7 @@ class Worker:
                 logger.warn(f"[code={res_code}]")
                 logger.warn(f"{res_json.get('message', '')}")
 
-            await asyncio.sleep(randint(0,1))
+            await asyncio.sleep(randint(0, 1))
 
 
 class WorkersApp:

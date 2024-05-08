@@ -128,7 +128,8 @@ class VideoPageAPIMocker:
         self.archive_generator = ArchiveGenerator()
         self.setup_routes()
 
-    def page_info(self, tid: int, pn: Optional[int] = 1, ps: Optional[int] = 50):
+    def page_info(self, rid: int, pn: Optional[int] = 1, ps: Optional[int] = 50):
+        tid = rid
         res = {
             "code": 0,
             "message": "0",

@@ -1,5 +1,5 @@
 from tclogger import logger
-from transforms.video_row import VideoInfoItem
+from transforms.video_row import VideoInfoConverter
 from transforms.dtypes import DataTyper
 from networks.sql import SQLOperator
 
@@ -7,9 +7,9 @@ from networks.sql import SQLOperator
 def create_video_info_table(table_name: str = "videos"):
     """This script would only run once, to create sql table with required columns."""
 
-    py_columns = VideoInfoItem.COLUMNS
-    columns_sql_map = VideoInfoItem.COLUMNS_SQL_MAP
-    columns_rename_map = VideoInfoItem.COLUMNS_RENAME_MAP
+    py_columns = VideoInfoConverter.COLUMNS
+    columns_sql_map = VideoInfoConverter.COLUMNS_SQL_MAP
+    columns_rename_map = VideoInfoConverter.COLUMNS_RENAME_MAP
 
     typer = DataTyper()
     sql_columns = {k: typer.py_dtype_to_sql_dtype(v) for k, v in py_columns.items()}
