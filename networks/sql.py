@@ -26,10 +26,15 @@ class SQLOperator:
         self.cur = self.conn.cursor()
         logger.success(f"+ Connected to [{self.dbname}] as ({self.user})")
 
-    def exec(self, cmd: str):
-        self.cur.execute(cmd)
+    def exec(self, query: str, values=None):
+        self.cur.execute(query, values)
+        try:
+            res = self.cur.fetchall()
+        except Exception as e:
+            res = None
+            logger.warn(e)
         self.conn.commit()
-        return self.cur.fetchall()
+        return res
 
     def close(self):
         self.cur.close()
