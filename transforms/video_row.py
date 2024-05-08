@@ -1,3 +1,4 @@
+import json
 import requests
 
 from datetime import datetime
@@ -76,13 +77,13 @@ class VideoInfoConverter:
     }
 
     EXTRA_COLUMNS = {
-        "inserted_at": int,
+        "insert_at": int,
     }
 
     COLUMNS_SQL_MAP = {
-        "pubdate": "timestamp",
-        "ctime": "timestamp",
-        "inserted_at": "timestamp",
+        "pubdate": "timestamptz",
+        "ctime": "timestamptz",
+        "insert_at": "timestamptz",
     }
     COLUMNS_RENAME_MAP = {
         "desc": "description",
@@ -126,15 +127,57 @@ class VideoInfoConverter:
                 new_video_info[k] = v
         return new_video_info
 
+    def extra(self, video_info: dict):
+        new_video_info = video_info
+        new_video_info["insert_at"] = self.get_now_timestamp()
+        return new_video_info
+
+    def sort(self, video_info: dict):
+        """sort the keys in the order of self.COLUMNS"""
+        new_video_info = {}
+        for k in self.COLUMNS.keys():
+            if k in video_info:
+                new_video_info[k] = video_info[k]
+            else:
+                new_video_info[k] = None
+        return new_video_info
+
     def get_now_timestamp(self):
         return int(datetime.now().timestamp())
 
     def to_sql_row(self, video_info: dict):
         new_video_info = video_info
-        new_video_info = self.flatten(new_video_info)
-        new_video_info = self.rename(new_video_info)
-        new_video_info["inserted_at"] = self.get_now_timestamp()
+        for method in [self.flatten, self.rename, self.extra, self.sort]:
+            new_video_info = method(new_video_info)
         return new_video_info
+
+    def serialize_sql_row(self, sql_row: dict):
+        new_sql_values = []
+        for k, v in sql_row.items():
+            if isinstance(v, dict):
+                new_v = json.dumps(v)
+            elif k in self.COLUMNS_SQL_MAP:
+                if self.COLUMNS_SQL_MAP[k] == "timestamptz":
+                    new_v = datetime.fromtimestamp(v)
+                else:
+                    new_v = v
+            else:
+                new_v = v
+            new_sql_values.append(new_v)
+        new_sql_values = tuple(new_sql_values)
+        return new_sql_values
+
+    def to_sql_query_and_values(self, video_info: dict, table_name: str = "videos"):
+        """Basic module usage - Psycopg 2.9.9 documentation:
+        - https://www.psycopg.org/docs/usage.html#passing-parameters-to-sql-queries
+        - https://www.psycopg.org/docs/usage.html#adaptation-of-python-values-to-sql-types
+        - https://www.psycopg.org/docs/usage.html#adapt-date
+        """
+        sql_row = self.to_sql_row(video_info)
+        values_placeholders = ", ".join(["%s"] * len(sql_row))
+        sql_query = f"INSERT INTO {table_name} VALUES ({values_placeholders})"
+        sql_values = self.serialize_sql_row(sql_row)
+        return sql_query, sql_values
 
 
 if __name__ == "__main__":
@@ -148,8 +191,21 @@ if __name__ == "__main__":
 
     video_info_dict = res_json["data"]["archives"][0]
 
+    logger.note("Converting video info to SQL row:")
     converter = VideoInfoConverter()
-    new_video_info = converter.to_sql_row(video_info_dict)
-    logger.mesg(new_video_info)
+    sql_row = converter.to_sql_row(video_info_dict)
+    logger.mesg(sql_row)
+
+    logger.note("Converting video info to SQL query and values:")
+    sql_query, sql_values = converter.to_sql_query_and_values(video_info_dict)
+    logger.mesg(sql_query)
+    logger.mesg(sql_values)
+
+    from networks.sql import SQLOperator
+
+    logger.note("Inserting video info:")
+    sql = SQLOperator()
+    res = sql.exec(sql_query, sql_values)
+    logger.success(res)
 
     # python -m transforms.video_row
