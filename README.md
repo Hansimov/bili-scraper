@@ -9,6 +9,23 @@ Regions:
 - https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html#%E8%8E%B7%E5%8F%96%E8%A7%86%E9%A2%91%E8%AF%A6%E7%BB%86%E4%BF%A1%E6%81%AF-web%E7%AB%AF
 
 
+## APPs
+
+Proxy App:
+- http://127.0.0.1:19001
+
+```sh
+python -m apps.proxy_app
+```
+
+Worker App:
+- http://127.0.0.1:19002
+
+```sh
+python -m apps.worker_app
+```
+
+
 ## JSON format
 
 JSON fields:
