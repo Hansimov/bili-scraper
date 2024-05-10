@@ -24,8 +24,12 @@ class ProxiesDatabase:
             "last_checked": "datetime64[ns]",
         }
         self.columns = list(self.column_dtypes.keys())
-        self.df_good = pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
-        self.df_bad = pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
+        self.df_good = self.default_df()
+        self.df_bad = self.default_df()
+        self.df_using = self.default_df()
+
+    def default_df(self):
+        return pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
 
     def add_proxy(
         self, server: str, latency: float, status: Literal["good", "bad"] = "good"
@@ -42,6 +46,9 @@ class ProxiesDatabase:
         elif status == "bad":
             logger.back(f"x Add bad proxy: {server}")
             self.df_bad = pd.concat([self.df_bad, new_row])
+        elif status == "using":
+            logger.note(f"= Add using proxy: {server}")
+            self.df_using = pd.concat([self.df_using, new_row])
         else:
             logger.warn(f"Unknown proxy status: {status}")
 
@@ -51,14 +58,35 @@ class ProxiesDatabase:
     def add_bad_proxy(self, server: str):
         self.add_proxy(server, -1, "bad")
 
+    def add_using_proxy(self, server: str, latency: float):
+        self.add_proxy(server, latency, "using")
+
     def get_good_proxies_list(self) -> List[str]:
         return self.df_good["server"].tolist()
 
     def get_bad_proxies_list(self) -> List[str]:
         return self.df_bad["server"].tolist()
 
-    def empty(self):
-        self.init_df()
+    def get_using_proxies_list(self) -> List[str]:
+        return self.df_using["server"].tolist()
+
+    def empty_good_proxies(self):
+        old_good_proxies = self.get_good_proxies_list()
+        self.df_good = self.default_df()
+        logger.success(f"> Empty {len(old_good_proxies)} good proxies")
+        return old_good_proxies
+
+    def empty_bad_proxies(self):
+        old_bad_proxies = self.get_bad_proxies_list()
+        self.df_bad = self.default_df()
+        logger.success(f"> Empty {len(old_bad_proxies)} bad proxies")
+        return old_bad_proxies
+
+    def empty_using_proxies(self):
+        old_using_proxies = self.get_using_proxies_list()
+        self.df_using = self.default_df()
+        logger.success(f"> Empty {len(old_using_proxies)} using proxies")
+        return old_using_proxies
 
 
 class ProxyApp:
