@@ -130,6 +130,7 @@ class ProxyApp:
     def get_all_proxies(self):
         logger.note(f"> Return all proxies")
 
+    # ANCHOR[id=get_proxy]
     def get_proxy(self, mock: Optional[bool] = False):
         if mock:
             res = {
@@ -138,16 +139,28 @@ class ProxyApp:
                 "status": "ok",
             }
         else:
-            # TODO: determine the best proxy to return
-            row = self.db.df_good.sample(n=1)
-            res = {
-                "server": row["server"].values[0],
-                "latency": row["latency"].values[0],
-                "status": "ok",
-            }
+            # get the proxy with lowest latency and not in using list
+            good_rows = self.db.df_good.sort_values("latency")
+            using_rows = self.db.df_using
+            usable_rows = good_rows[~good_rows["server"].isin(using_rows["server"])]
+            if usable_rows.empty:
+                logger.warn(f"> No usable proxy")
+                res = {
+                    "server": "No usable proxy",
+                    "latency": -1,
+                    "status": "error",
+                }
+            else:
+                res = {
+                    "server": usable_rows["server"].values[0],
+                    "latency": usable_rows["latency"].values[0],
+                    "status": "ok",
+                }
+                self.db.add_using_proxy(res["server"], res["latency"])
 
-        logger.note(f"> Return a random proxy:", end=" ")
-        logger.mesg(res["server"])
+        logger.success(
+            f"> Get proxy: {res['server']}, latency={res['latency']:.2f}s, status={res['status']}"
+        )
 
         return res
 
@@ -156,6 +169,17 @@ class ProxyApp:
         res = {
             "server": server,
             "status": "deleted",
+        }
+        return res
+
+    # ANCHOR[id=reset_using_proxies]
+    def reset_using_proxies(self):
+        old_using_proxies = self.db.empty_using_proxies()
+        message = f"Reset {len(old_using_proxies)} using proxies"
+        logger.warn(f"> {message}")
+        res = {
+            "message": message,
+            "status": "ok",
         }
         return res
 
@@ -174,6 +198,11 @@ class ProxyApp:
             "/del_proxy",
             summary="Delete a proxy",
         )(self.del_proxy)
+
+        self.app.post(
+            "/reset_using_proxies",
+            summary="Reset using proxies",
+        )(self.reset_using_proxies)
 
         self.app.post(
             "/refresh_proxies",
