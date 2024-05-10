@@ -5,7 +5,7 @@ import uvicorn
 
 from fastapi import FastAPI, Body
 from random import randint
-from tclogger import logger
+from tclogger import logger, Runtimer
 from typing import Optional
 
 
@@ -78,6 +78,7 @@ class Worker:
         wid: int = -1,
         proxy: str = None,
         mock: bool = False,
+        interval: float = 3.0,
     ):
         self.wid = wid
         self.generator = generator
@@ -85,8 +86,10 @@ class Worker:
         self.proxy = proxy
         self.mock = mock
         self.active = False
+        self.interval = interval
 
     async def get_proxy(self):
+        # LINK apps/proxy_app.py#get_proxy
         proxy_api = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}/get_proxy"
         params = {"mock": self.mock}
         try:
@@ -157,7 +160,10 @@ class Worker:
             async with self.lock:
                 await self.get_proxy()
 
+        self.timer = Runtimer(verbose=False)
+
         while True:
+            self.timer.start_time()
             if not self.active:
                 break
 
@@ -197,7 +203,11 @@ class Worker:
                 logger.warn(f"[code={res_code}]")
                 logger.warn(f"{res_json.get('message', '')}")
 
-            await asyncio.sleep(randint(0, 1))
+            self.timer.end_time()
+            dt = self.timer.elapsed_time()
+
+            sleep_time = max(self.interval - dt.total_seconds(), 0)
+            await asyncio.sleep(sleep_time)
 
 
 class WorkersApp:
