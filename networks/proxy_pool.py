@@ -41,7 +41,7 @@ class ProxyBenchmarker:
         self.timer = Runtimer(False)
         self.max_workers = os.cpu_count() * 64
 
-    def test_proxy(self, proxy=None, callback=None):
+    def test_proxy(self, proxy=None, good_callback=None, bad_callback=None):
         self.timer.start_time()
         self.tested_count += 1
         count_str = (
@@ -56,6 +56,8 @@ class ProxyBenchmarker:
             )
         except:
             logger.back(f"{count_str} × Not Connected: {proxy}")
+            if bad_callback:
+                bad_callback(proxy)
             return False
 
         self.timer.end_time()
@@ -69,23 +71,26 @@ class ProxyBenchmarker:
                 f"√ [{self.success_count}] {count_str} [{elapsed_time_str}]: {proxy}"
             )
             self.success_proxies.append(proxy)
-            if callback:
+            if good_callback:
                 elapsed_seconds = round(elapsed_time.microseconds * 1e-6, 2)
-                callback(proxy, elapsed_seconds)
+                good_callback(proxy, elapsed_seconds)
         except:
             logger.back(f"{count_str} × [{res.status_code}] {proxy}")
+            if bad_callback:
+                bad_callback(proxy)
             return False
 
         return True
 
-    def batch_test_proxy(self, proxies, callback=None):
+    def batch_test_proxy(self, proxies, good_callback=None, bad_callback=None):
         logger.note(f"> Benchmarking {len(proxies)} proxies")
         self.total_count = len(proxies)
         with concurrent.futures.ThreadPoolExecutor(
             max_workers=self.max_workers
         ) as executor:
             futures = [
-                executor.submit(self.test_proxy, proxy, callback) for proxy in proxies
+                executor.submit(self.test_proxy, proxy, good_callback, bad_callback)
+                for proxy in proxies
             ]
 
         for idx, future in enumerate(concurrent.futures.as_completed(futures)):
