@@ -226,9 +226,23 @@ class WorkersApp:
             f"> {WORKER_APP_ENVS['app_name']} - v{WORKER_APP_ENVS['version']}"
         )
 
+    def reset_using_proxies(self):
+        # LINK apps/proxy_app.py#reset_using_proxies
+        api = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}/reset_using_proxies"
+        try:
+            res = requests.post(api)
+            data = res.json()
+        except Exception as e:
+            data = {
+                "message": str(e),
+                "status": "error",
+            }
+        return data
+
     async def create_workers(
         self, max_workers: Optional[int] = Body(20), mock: Optional[bool] = Body(True)
     ):
+        self.reset_using_proxies()
         self.workers = []
         for i in range(max_workers):
             worker = Worker(wid=i, generator=self.generator, lock=self.lock, mock=mock)
