@@ -1,7 +1,7 @@
 import pandas as pd
 import uvicorn
 
-from typing import Optional
+from typing import Optional, List, Literal
 
 from fastapi import FastAPI
 from tclogger import logger
@@ -24,17 +24,41 @@ class ProxiesDatabase:
             "last_checked": "datetime64[ns]",
         }
         self.columns = list(self.column_dtypes.keys())
-        self.df = pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
+        self.df_good = pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
+        self.df_bad = pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
 
-    def add_proxy(self, server: str, latency: float):
-        logger.success(f"+ Add proxy: [{latency:.2f}s] {server}")
+    def add_proxy(
+        self, server: str, latency: float, status: Literal["good", "bad"] = "good"
+    ):
         new_item = {
             "server": [server],
             "latency": [latency],
             "last_checked": [pd.Timestamp.now()],
         }
         new_row = pd.DataFrame(new_item)
-        self.df = pd.concat([self.df, new_row])
+        if status == "good":
+            logger.success(f"+ Add good proxy: [{latency:.2f}s] {server}")
+            self.df_good = pd.concat([self.df_good, new_row])
+        elif status == "bad":
+            logger.back(f"x Add bad proxy: {server}")
+            self.df_bad = pd.concat([self.df_bad, new_row])
+        else:
+            logger.warn(f"Unknown proxy status: {status}")
+
+    def add_good_proxy(self, server: str, latency: float):
+        self.add_proxy(server, latency, "good")
+
+    def add_bad_proxy(self, server: str):
+        self.add_proxy(server, -1, "bad")
+
+    def get_good_proxies_list(self) -> List[str]:
+        return self.df_good["server"].tolist()
+
+    def get_bad_proxies_list(self) -> List[str]:
+        return self.df_bad["server"].tolist()
+
+    def empty(self):
+        self.init_df()
 
 
 class ProxyApp:
@@ -52,11 +76,25 @@ class ProxyApp:
     def refresh_proxies(self):
         logger.note(f"> Refreshing proxies")
         proxies = ProxyPool().get_proxies_list()
+        proxies = list(set(proxies))
         benchmarker = ProxyBenchmarker()
-        benchmarker.batch_test_proxy(proxies, callback=self.db.add_proxy)
+        old_good_proxies = self.db.get_good_proxies_list()
+        old_bad_proxies = self.db.get_bad_proxies_list()
+        proxies_to_test = list(
+            set(proxies) - set(old_good_proxies) - set(old_bad_proxies)
+        )
+        logger.mesg(
+            f"  - Skip {len(old_good_proxies)} good and {len(old_bad_proxies)} bad proxies\n"
+            f"  - Test {len(proxies_to_test)} new proxies"
+        )
+        benchmarker.batch_test_proxy(
+            proxies_to_test,
+            good_callback=self.db.add_good_proxy,
+            bad_callback=self.db.add_bad_proxy,
+        )
         res = {
             "total": len(proxies),
-            "usable": len(self.db.df),
+            "usable": len(self.db.df_good),
             "status": "refreshed",
         }
         return res
@@ -73,7 +111,7 @@ class ProxyApp:
             }
         else:
             # TODO: determine the best proxy to return
-            row = self.db.df.sample(n=1)
+            row = self.db.df_good.sample(n=1)
             res = {
                 "server": row["server"].values[0],
                 "latency": row["latency"].values[0],
