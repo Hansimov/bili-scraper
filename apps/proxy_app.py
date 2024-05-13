@@ -1,4 +1,5 @@
 import pandas as pd
+import threading
 import uvicorn
 
 from typing import Optional, List, Literal
@@ -22,6 +23,7 @@ class ProxiesDatabase:
 
     def __init__(self):
         self.init_df()
+        self.lock = threading.Lock()
 
     def init_df(self):
         # create a pandas dataframe to store good proxies
@@ -47,6 +49,7 @@ class ProxiesDatabase:
         }
         new_row = pd.Series(new_item)
 
+        with self.lock:
             if status == "good":
                 logger.success(f"+ Add good proxy: [{latency:.2f}s] {server}")
                 self.df_good.loc[server] = new_row
@@ -149,7 +152,7 @@ class ProxyApp:
             # get the proxy with lowest latency and not in using list
             good_rows = self.db.df_good.sort_values("latency")
             using_rows = self.db.df_using
-            usable_rows = good_rows[~good_rows["server"].isin(using_rows["server"])]
+            usable_rows = good_rows[~good_rows.index.isin(using_rows.index)]
             if usable_rows.empty:
                 logger.warn(f"> No usable proxy")
                 res = {
@@ -159,8 +162,8 @@ class ProxyApp:
                 }
             else:
                 res = {
-                    "server": usable_rows["server"].values[0],
-                    "latency": usable_rows["latency"].values[0],
+                    "server": usable_rows.index[0],
+                    "latency": usable_rows.iloc[0]["latency"],
                     "status": "ok",
                 }
                 self.db.add_using_proxy(res["server"], res["latency"])
