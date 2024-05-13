@@ -118,11 +118,10 @@ class ProxyApp:
         benchmarker = ProxyBenchmarker()
         old_good_proxies = self.db.get_good_proxies_list()
         old_bad_proxies = self.db.get_bad_proxies_list()
-        proxies_to_test = list(
-            set(proxies) - set(old_good_proxies) - set(old_bad_proxies)
-        )
+        self.db.empty_good_proxies()
+        proxies_to_test = list(set(proxies + old_good_proxies) - set(old_bad_proxies))
         logger.mesg(
-            f"  - Skip {len(old_good_proxies)} good and {len(old_bad_proxies)} bad proxies\n"
+            f"  - Retest {len(old_good_proxies)} good proxies, and skip {len(old_bad_proxies)} bad proxies\n"
             f"  - Test {len(proxies_to_test)} new proxies"
         )
         benchmarker.batch_test_proxy(
