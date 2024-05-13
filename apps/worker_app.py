@@ -1,6 +1,8 @@
 import asyncio
-from random import randint
+import concurrent.futures
 import requests
+import threading
+import time
 import uvicorn
 
 from fastapi import FastAPI, Body
@@ -47,15 +49,15 @@ class WorkerParamsGenerator:
         else:
             return -1
 
-    async def flag_current_region_exhausted(self):
+    def flag_current_region_exhausted(self):
         self.is_current_region_exhausted = True
 
-    async def is_terminated(self):
+    def is_terminated(self):
         if self.tid == -1 and self.pn == -1:
             return True
         return False
 
-    async def next(self):
+    def next(self):
         if not self.is_current_region_exhausted:
             self.pn += 1
         else:
@@ -74,11 +76,13 @@ class Worker:
     def __init__(
         self,
         generator: WorkerParamsGenerator,
-        lock: asyncio.Lock,
+        lock,
         wid: int = -1,
         proxy: str = None,
         mock: bool = False,
         interval: float = 3.0,
+        retry_count: int = 3,
+        time_out: float = 2.5,
     ):
         self.wid = wid
         self.generator = generator
@@ -87,8 +91,10 @@ class Worker:
         self.mock = mock
         self.active = False
         self.interval = interval
+        self.retry_count = retry_count
+        self.time_out = time_out
 
-    async def get_proxy(self):
+    def get_proxy(self):
         # LINK apps/proxy_app.py#get_proxy
         proxy_api = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}/get_proxy"
         params = {"mock": self.mock}
@@ -155,10 +161,9 @@ class Worker:
             }
         return res_json
 
-    async def run(self):
+    def run(self):
         if not self.proxy:
-            async with self.lock:
-                await self.get_proxy()
+            self.get_proxy()
 
         self.timer = Runtimer(verbose=False)
 
@@ -167,19 +172,18 @@ class Worker:
             if not self.active:
                 break
 
-            async with self.lock:
-                if await self.generator.is_terminated():
+            with self.lock:
+                if self.generator.is_terminated():
                     self.active = False
                     break
 
-            async with self.lock:
-                tid, pn = await self.generator.next()
+            with self.lock:
+                tid, pn = self.generator.next()
 
             region_name = self.generator.get_region().get("name", "Unknown")
-            logger.note(
-                f"> GET: wid={self.wid}, tid={tid}, pn={pn}, region={region_name}",
-                end=" => ",
-            )
+            task_str = f"wid={self.wid}, tid={tid}, pn={pn}, region={region_name}"
+            logger.note(f"> GET: {task_str}")
+
             if tid == -1 and pn == -1:
                 logger.success(f"[Finished]")
                 break
@@ -188,26 +192,29 @@ class Worker:
             archives = res_json.get("data", {}).get("archives", [])
 
             if len(archives) == 0:
-                async with self.lock:
-                    await self.generator.flag_current_region_exhausted()
+                with self.lock:
+                    self.generator.flag_current_region_exhausted()
 
             res_code = res_json.get("code", -1)
 
             if res_code == 0:
-                logger.success(f"[code={res_code}]", end=" ")
+                logger.success(
+                    f"+ GOOD: {task_str} [code={res_code}]",
+                    end=" ",
+                )
                 if len(archives) > 0:
                     logger.mesg(f"<{len(archives)} videos>")
                 else:
                     logger.warn(f"<0 video>")
             else:
-                logger.warn(f"[code={res_code}]")
+                logger.warn(f"- BAD: {task_str} [code={res_code}]")
                 logger.warn(f"{res_json.get('message', '')}")
 
             self.timer.end_time()
             dt = self.timer.elapsed_time()
 
             sleep_time = max(self.interval - dt.total_seconds(), 0)
-            await asyncio.sleep(sleep_time)
+            time.sleep(sleep_time)
 
 
 class WorkersApp:
@@ -221,7 +228,7 @@ class WorkersApp:
         self.setup_routes()
         self.workers = []
         self.generator = None
-        self.lock = asyncio.Lock()
+        self.lock = threading.Lock()
         logger.success(
             f"> {WORKER_APP_ENVS['app_name']} - v{WORKER_APP_ENVS['version']}"
         )
@@ -239,7 +246,7 @@ class WorkersApp:
             }
         return data
 
-    async def create_workers(
+    def create_workers(
         self, max_workers: Optional[int] = Body(20), mock: Optional[bool] = Body(True)
     ):
         self.reset_using_proxies()
@@ -248,7 +255,7 @@ class WorkersApp:
             worker = Worker(wid=i, generator=self.generator, lock=self.lock, mock=mock)
             self.workers.append(worker)
 
-    async def start(
+    def start(
         self,
         region_codes: Optional[list[str]] = Body(["game", "knowledge", "tech"]),
         max_workers: Optional[int] = Body(20),
@@ -256,10 +263,14 @@ class WorkersApp:
     ):
         if not self.generator:
             self.generator = WorkerParamsGenerator(region_codes=region_codes, mock=mock)
-        await self.create_workers(max_workers=max_workers, mock=mock)
+        self.create_workers(max_workers=max_workers, mock=mock)
 
-        tasks = [worker.run() for worker in self.workers]
-        await asyncio.gather(*tasks)
+        with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
+            futures = [executor.submit(worker.run) for worker in self.workers]
+            for future in concurrent.futures.as_completed(futures):
+                future.result()
+
+        return {"status": "started"}
 
     def stop(self):
         for worker in self.workers:
