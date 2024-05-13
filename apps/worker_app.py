@@ -133,32 +133,35 @@ class Worker:
 
         params = {"rid": tid, "pn": pn, "ps": ps}
 
-        try:
-            res = requests.get(
-                url, headers=REQUESTS_HEADERS, params=params, proxies=proxies, timeout=5
-            )
-            if res.status_code == 200:
-                res_json = res.json()
-            else:
-                res_json = {
-                    "code": res.status_code,
-                    "message": res.text,
-                    "ttl": 1,
-                    "data": {
-                        "archives": [],
-                        "page": {"count": randint(1e4, 1e7), "num": pn, "size": ps},
-                    },
-                }
-        except Exception as e:
+        res_json = None
+        retry_count = 0
+        while retry_count < self.retry_count:
+            try:
+                res = requests.get(
+                    url,
+                    headers=REQUESTS_HEADERS,
+                    params=params,
+                    proxies=proxies,
+                    timeout=self.time_out,
+                )
+                if res.status_code == 200:
+                    res_json = res.json()
+                    break
+                else:
+                    retry_count += 1
+            except Exception as e:
+                retry_count += 1
+
+        if not res_json:
             res_json = {
                 "code": -1,
-                "message": str(e),
-                "ttl": 1,
+                "message": f"Failed to get page after {self.retry_count} retries: tid={tid}, pn={pn}",
                 "data": {
                     "archives": [],
-                    "page": {"count": randint(1e4, 1e7), "num": pn, "size": ps},
+                    "page": {"count": -1, "num": pn, "size": ps},
                 },
             }
+
         return res_json
 
     def run(self):
