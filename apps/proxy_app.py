@@ -12,45 +12,52 @@ from networks.proxy_pool import ProxyPool, ProxyBenchmarker
 
 
 class ProxiesDatabase:
+    COLUMN_DTYPES = {
+        "server": str,
+        "latency": float,
+        "last_checked": "datetime64[ns]",
+    }
+    COLUMNS = list(COLUMN_DTYPES.keys())
+    INDEX_COLUMNS = ["server"]
+
     def __init__(self):
         self.init_df()
 
     def init_df(self):
         # create a pandas dataframe to store good proxies
         # columns: server(ip:port):str, latency:float, last_checked:datetime
-        self.column_dtypes = {
-            "server": str,
-            "latency": float,
-            "last_checked": "datetime64[ns]",
-        }
-        self.columns = list(self.column_dtypes.keys())
         self.df_good = self.default_df()
         self.df_bad = self.default_df()
         self.df_using = self.default_df()
 
     def default_df(self):
-        return pd.DataFrame(columns=self.columns).astype(self.column_dtypes)
+        df = pd.DataFrame(columns=self.COLUMNS).astype(self.COLUMN_DTYPES)
+        df = df.set_index(self.INDEX_COLUMNS)
+        return df
 
     def add_proxy(
-        self, server: str, latency: float, status: Literal["good", "bad"] = "good"
+        self,
+        server: str,
+        latency: float,
+        status: Literal["good", "bad", "using"] = "good",
     ):
         new_item = {
-            "server": [server],
-            "latency": [latency],
-            "last_checked": [pd.Timestamp.now()],
+            "latency": latency,
+            "last_checked": pd.Timestamp.now(),
         }
-        new_row = pd.DataFrame(new_item)
-        if status == "good":
-            logger.success(f"+ Add good proxy: [{latency:.2f}s] {server}")
-            self.df_good = pd.concat([self.df_good, new_row])
-        elif status == "bad":
-            logger.back(f"x Add bad proxy: {server}")
-            self.df_bad = pd.concat([self.df_bad, new_row])
-        elif status == "using":
-            logger.note(f"= Add using proxy: {server}")
-            self.df_using = pd.concat([self.df_using, new_row])
-        else:
-            logger.warn(f"Unknown proxy status: {status}")
+        new_row = pd.Series(new_item)
+
+            if status == "good":
+                logger.success(f"+ Add good proxy: [{latency:.2f}s] {server}")
+                self.df_good.loc[server] = new_row
+            elif status == "bad":
+                logger.back(f"x Add bad proxy: {server}")
+                self.df_bad.loc[server] = new_row
+            elif status == "using":
+                logger.note(f"= Add using proxy: {server}")
+                self.df_using.loc[server] = new_row
+            else:
+                logger.warn(f"Unknown proxy status: {status}")
 
     def add_good_proxy(self, server: str, latency: float):
         self.add_proxy(server, latency, "good")
@@ -62,13 +69,13 @@ class ProxiesDatabase:
         self.add_proxy(server, latency, "using")
 
     def get_good_proxies_list(self) -> List[str]:
-        return self.df_good["server"].tolist()
+        return self.df_good.index.tolist()
 
     def get_bad_proxies_list(self) -> List[str]:
-        return self.df_bad["server"].tolist()
+        return self.df_bad.index.tolist()
 
     def get_using_proxies_list(self) -> List[str]:
-        return self.df_using["server"].tolist()
+        return self.df_using.index.tolist()
 
     def empty_good_proxies(self):
         old_good_proxies = self.get_good_proxies_list()
