@@ -8,7 +8,7 @@ import uvicorn
 from fastapi import FastAPI, Body
 from random import randint
 from tclogger import logger, Runtimer
-from typing import Optional
+from typing import Optional, Literal
 
 
 from apps.arg_parser import ArgParser
@@ -72,6 +72,20 @@ class WorkerParamsGenerator:
         return self.tid, self.pn
 
 
+class ResponseCategorizer:
+    def categorize(
+        self, res_dict: dict
+    ) -> Literal["network_error", "end_of_region", "normal"]:
+        code = res_dict.get("code")
+        if code != 0:
+            return "network_error"
+        archives = res_dict.get("data", {}).get("archives", [])
+        if len(archives) == 0:
+            return "end_of_region"
+        else:
+            return "normal"
+
+
 class Worker:
     def __init__(
         self,
@@ -93,6 +107,7 @@ class Worker:
         self.interval = interval
         self.retry_count = retry_count
         self.time_out = time_out
+        self.response_categorizer = ResponseCategorizer()
 
     def get_proxy(self):
         # LINK apps/proxy_app.py#get_proxy
@@ -193,22 +208,19 @@ class Worker:
 
             res_json = self.get_page(tid=tid, pn=pn)
             archives = res_json.get("data", {}).get("archives", [])
+            res_code = res_json.get("code", -1)
+            res_condition = self.response_categorizer.categorize(res_json)
 
-            if len(archives) == 0:
+            if res_condition == "end_of_region":
+                logger.success(f"+ End of region: {region_name}")
                 with self.lock:
                     self.generator.flag_current_region_exhausted()
-
-            res_code = res_json.get("code", -1)
-
-            if res_code == 0:
+            elif res_condition == "normal":
                 logger.success(
                     f"+ GOOD: {task_str} [code={res_code}]",
                     end=" ",
                 )
-                if len(archives) > 0:
-                    logger.mesg(f"<{len(archives)} videos>")
-                else:
-                    logger.warn(f"<0 video>")
+                logger.mesg(f"<{len(archives)} videos>")
             else:
                 logger.warn(f"- BAD: {task_str} [code={res_code}]")
                 logger.warn(f"{res_json.get('message', '')}")
