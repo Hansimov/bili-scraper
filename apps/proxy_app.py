@@ -42,16 +42,20 @@ class ProxiesDatabase:
         server: str,
         latency: float,
         status: Literal["good", "bad", "using"] = "good",
+        success_rate: float = -1,
     ):
         new_item = {
             "latency": latency,
             "last_checked": pd.Timestamp.now(),
+            "success_rate": success_rate,
         }
         new_row = pd.Series(new_item)
 
         with self.lock:
             if status == "good":
-                logger.success(f"+ Add good proxy: [{latency:.2f}s] {server}")
+                logger.success(
+                    f"+ Add good proxy: [{latency:.2f}s] [{success_rate:.2f}] {server}"
+                )
                 self.df_good.loc[server] = new_row
             elif status == "bad":
                 logger.back(f"x Add bad proxy: {server}")
@@ -62,14 +66,14 @@ class ProxiesDatabase:
             else:
                 logger.warn(f"Unknown proxy status: {status}")
 
-    def add_good_proxy(self, server: str, latency: float):
-        self.add_proxy(server, latency, "good")
+    def add_good_proxy(self, server: str, latency: float, success_rate: float):
+        self.add_proxy(server, latency, "good", success_rate)
 
     def add_bad_proxy(self, server: str):
-        self.add_proxy(server, -1, "bad")
+        self.add_proxy(server, -1, "bad", -1)
 
-    def add_using_proxy(self, server: str, latency: float):
-        self.add_proxy(server, latency, "using")
+    def add_using_proxy(self, server: str, latency: float, success_rate: float):
+        self.add_proxy(server, latency, "using", success_rate)
 
     def get_good_proxies_list(self) -> List[str]:
         return self.df_good.index.tolist()
@@ -145,11 +149,15 @@ class ProxyApp:
             res = {
                 "server": "mock",
                 "latency": 0.0,
+                "success_rate": 1.0,
                 "status": "ok",
             }
         else:
-            # get the proxy with lowest latency and not in using list
-            good_rows = self.db.df_good.sort_values("latency")
+            # Get the proxy with highest success_rate and lowest latency,
+            # and not in using list
+            good_rows = self.db.df_good.sort_values(
+                by=["success_rate", "latency"], ascending=[False, True]
+            )
             using_rows = self.db.df_using
             usable_rows = good_rows[~good_rows.index.isin(using_rows.index)]
             if usable_rows.empty:
@@ -157,18 +165,22 @@ class ProxyApp:
                 res = {
                     "server": "No usable proxy",
                     "latency": -1,
+                    "success_rate": -1,
                     "status": "error",
                 }
             else:
                 res = {
                     "server": usable_rows.index[0],
                     "latency": usable_rows.iloc[0]["latency"],
+                    "success_rate": usable_rows.iloc[0]["success_rate"],
                     "status": "ok",
                 }
-                self.db.add_using_proxy(res["server"], res["latency"])
+                self.db.add_using_proxy(
+                    res["server"], res["latency"], res["success_rate"]
+                )
 
         logger.success(
-            f"> Get proxy: {res['server']}, latency={res['latency']:.2f}s, status={res['status']}"
+            f"> Get proxy: [{res['status']}] {res['server']}, {res['latency']:.2f}s, {res['success_rate']*100}%"
         )
 
         return res
