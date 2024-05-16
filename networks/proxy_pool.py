@@ -2,6 +2,7 @@ import ast
 import concurrent.futures
 import os
 import requests
+import time
 
 from tclogger import logger, int_bits, OSEnver, Runtimer
 from pathlib import Path
@@ -40,46 +41,68 @@ class ProxyBenchmarker:
         self.success_proxies = []
         self.timer = Runtimer(False)
         self.max_workers = os.cpu_count() * 64
+        self.retry_count = 5
+        self.retry_interval = 0.2
+        self.accept_success_rate = 0.3
 
     def test_proxy(self, proxy=None, good_callback=None, bad_callback=None):
-        self.timer.start_time()
         self.tested_count += 1
         count_str = (
             f"[{self.tested_count:>{int_bits(self.total_count)}}/{self.total_count}]"
         )
-        try:
-            res = requests.get(
-                self.test_url,
-                headers=REQUESTS_HEADERS,
-                proxies={"http": f"http://{proxy}", "https": f"http://{proxy}"},
-                timeout=1,
-            )
-        except:
+
+        current_proxy_success_count = 0
+        current_proxy_retry_count = 0
+        current_proxy_accumulated_time = 0
+        while current_proxy_retry_count < self.retry_count:
+            try:
+                self.timer.start_time()
+                res = requests.get(
+                    self.test_url,
+                    headers=REQUESTS_HEADERS,
+                    proxies={"http": f"http://{proxy}", "https": f"http://{proxy}"},
+                    timeout=1,
+                )
+                self.timer.end_time()
+                elapsed_time = self.timer.elapsed_time()
+                elapsed_seconds = round(elapsed_time.microseconds * 1e-6, 4)
+                res_json = res.json()
+                archives = res_json.get("data", {}).get("archives", [])
+                if len(archives) > 0:
+                    current_proxy_success_count += 1
+                    current_proxy_accumulated_time += elapsed_seconds
+            except:
+                pass
+
+            current_proxy_retry_count += 1
+            time.sleep(self.retry_interval)
+
+        current_proxy_success_rate = current_proxy_success_count / self.retry_count
+
+        if current_proxy_success_rate < self.accept_success_rate:
             logger.back(f"{count_str} × Not Connected: {proxy}")
             if bad_callback:
                 bad_callback(proxy)
             return False
-
-        self.timer.end_time()
-        elapsed_time = self.timer.elapsed_time()
-        elapsed_time_str = self.timer.time2str(elapsed_time, unit_sep="")
-
-        try:
-            data = res.json()
-            self.success_count += 1
-            logger.mesg(
-                f"√ [{self.success_count}] {count_str} [{elapsed_time_str}]: {proxy}"
+        else:
+            current_proxy_average_latency = round(
+                current_proxy_accumulated_time / current_proxy_success_count, 2
             )
-            self.success_proxies.append(proxy)
-            if good_callback:
-                elapsed_seconds = round(elapsed_time.microseconds * 1e-6, 2)
-                good_callback(proxy, elapsed_seconds)
-        except:
-            logger.back(f"{count_str} × [{res.status_code}] {proxy}")
-            if bad_callback:
-                bad_callback(proxy)
-            return False
 
+        average_latency_str = self.timer.time2str(
+            current_proxy_average_latency, unit_sep=""
+        )
+
+        self.success_count += 1
+        logger.mesg(
+            f"√ [{self.success_count}] {count_str} [{average_latency_str}]: {proxy}"
+        )
+        self.success_proxies.append(proxy)
+
+        if good_callback:
+            good_callback(
+                proxy, current_proxy_average_latency, current_proxy_success_rate
+            )
         return True
 
     def batch_test_proxy(self, proxies, good_callback=None, bad_callback=None):
