@@ -108,13 +108,15 @@ class Worker:
         self.retry_count = retry_count
         self.time_out = time_out
         self.response_categorizer = ResponseCategorizer()
+        self.proxy_endpoint = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}"
+        self.get_proxy_api = f"{self.proxy_endpoint}/get_proxy"
+        self.drop_proxy_api = f"{self.proxy_endpoint}/drop_proxy"
 
     def get_proxy(self):
         # LINK apps/proxy_app.py#get_proxy
-        proxy_api = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}/get_proxy"
         params = {"mock": self.mock}
         try:
-            res = requests.get(proxy_api, params=params)
+            res = requests.get(self.get_proxy_api, params=params)
             if res.status_code == 200:
                 proxy = res.json().get("server")
             else:
@@ -123,13 +125,23 @@ class Worker:
             proxy = None
 
         if proxy:
-            logger.success(f"> New worker {self.wid} with proxy: [{proxy}]")
+            if not self.proxy:
+                logger.file(f"> New worker {self.wid} with proxy: [{proxy}]")
+            else:
+                logger.file(f"> Worker {self.wid} with new proxy: [{proxy}]")
             self.active = True
         else:
-            logger.warn(f"> Failed to create new worker as no proxy")
+            logger.warn(f"× Failed to create new worker: No usable proxy")
             self.active = False
 
         self.proxy = proxy
+
+    def drop_proxy(self):
+        # LINK apps/proxy_app.py#drop_proxy
+        try:
+            res = requests.post(self.drop_proxy_api, data={"server": self.proxy})
+        except Exception as e:
+            pass
 
     def get_page(self, tid: int, pn: int, ps: int = 50):
         proxy = self.proxy
@@ -183,6 +195,7 @@ class Worker:
         if not self.proxy:
             self.get_proxy()
 
+        retry_last_params = False
         self.timer = Runtimer(verbose=False)
 
         while True:
@@ -196,7 +209,11 @@ class Worker:
                     break
 
             with self.lock:
-                tid, pn = self.generator.next()
+                if not retry_last_params:
+                    tid, pn = self.generator.next()
+                else:
+                    tid, pn = tid, pn
+                    retry_last_params = False
 
             region_name = self.generator.get_region().get("name", "Unknown")
             task_str = f"wid={self.wid}, tid={tid}, pn={pn}, region={region_name}"
@@ -212,18 +229,20 @@ class Worker:
             res_condition = self.response_categorizer.categorize(res_json)
 
             if res_condition == "end_of_region":
-                logger.success(f"+ End of region: {region_name}")
+                logger.success(f"  + End of region: {region_name}")
                 with self.lock:
                     self.generator.flag_current_region_exhausted()
             elif res_condition == "normal":
-                logger.success(
-                    f"+ GOOD: {task_str} [code={res_code}]",
-                    end=" ",
-                )
+                logger.success(f"  + GOOD: {task_str}", end=" ")
                 logger.mesg(f"<{len(archives)} videos>")
+            elif res_condition == "network_error":
+                logger.warn(f"  × BAD: {task_str} [code={res_code}]")
+                logger.warn(f"    {res_json.get('message', '')}")
+                self.drop_proxy()
+                self.get_proxy()
+                retry_last_params = True
             else:
-                logger.warn(f"- BAD: {task_str} [code={res_code}]")
-                logger.warn(f"{res_json.get('message', '')}")
+                logger.warn(f"  - Unknown condition: {task_str} [code={res_code}]")
 
             self.timer.end_time()
             dt = self.timer.elapsed_time()
@@ -274,7 +293,7 @@ class WorkersApp:
         self,
         region_codes: Optional[list[str]] = Body(["game", "knowledge", "tech"]),
         max_workers: Optional[int] = Body(20),
-        mock: Optional[bool] = Body(True),
+        mock: Optional[bool] = Body(False),
     ):
         if not self.generator:
             self.generator = WorkerParamsGenerator(region_codes=region_codes, mock=mock)
