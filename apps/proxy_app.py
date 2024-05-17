@@ -4,7 +4,8 @@ import uvicorn
 
 from typing import Optional, List, Literal
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Body
+from pydantic import BaseModel
 from tclogger import logger
 
 from apps.arg_parser import ArgParser
@@ -67,6 +68,27 @@ class ProxiesDatabase:
             else:
                 logger.warn(f"Unknown proxy status: {status}")
 
+    def remove_proxy(
+        self, server: str, status: Literal["good", "bad", "using"] = "good"
+    ):
+        with self.lock:
+            if status == "good":
+                if server in self.df_good.index:
+                    self.df_good.drop(index=server, inplace=True)
+                    logger.warn(f"- Remove good proxy: {server}")
+            elif status == "bad":
+                if server in self.df_bad.index:
+                    self.df_bad.drop(index=server, inplace=True)
+                    logger.warn(f"- Remove bad proxy: {server}")
+            elif status == "using":
+                if server in self.df_using.index:
+                    self.df_using.drop(index=server, inplace=True)
+                    logger.warn(f"- Remove using proxy: {server}")
+            else:
+                logger.warn(f"Unknown proxy status: {status}")
+
+        return {"server": server, "status": "removed"}
+
     def add_good_proxy(self, server: str, latency: float, success_rate: float):
         self.add_proxy(server, latency, "good", success_rate)
 
@@ -75,6 +97,15 @@ class ProxiesDatabase:
 
     def add_using_proxy(self, server: str, latency: float, success_rate: float):
         self.add_proxy(server, latency, "using", success_rate)
+
+    def remove_good_proxy(self, server: str):
+        return self.remove_proxy(server, "good")
+
+    def remove_bad_proxy(self, server: str):
+        return self.remove_proxy(server, "bad")
+
+    def remove_using_proxy(self, server: str):
+        return self.remove_proxy(server, "using")
 
     def get_good_proxies_list(self) -> List[str]:
         return self.df_good.index.tolist()
@@ -186,11 +217,20 @@ class ProxyApp:
 
         return res
 
-    def del_proxy(self, server: str):
-        logger.warn(f"> Delete proxy: {server}")
+    class DropProxyPostItem(BaseModel):
+        server: str = Body(default="", description="Proxy server to drop")
+
+    # ANCHOR[id=drop_proxy]
+    def drop_proxy(self, item: DropProxyPostItem):
+        server = item.server
+        logger.note(f"> Drop proxy: {server}")
+        self.db.remove_using_proxy(server)
+        self.db.remove_good_proxy(server)
+        self.db.add_bad_proxy(server)
+        logger.success(f"+ Dropped proxy: {server}")
         res = {
             "server": server,
-            "status": "deleted",
+            "status": "dropped",
         }
         return res
 
@@ -216,10 +256,10 @@ class ProxyApp:
             summary="Get a usable proxy",
         )(self.get_proxy)
 
-        self.app.delete(
-            "/del_proxy",
-            summary="Delete a proxy",
-        )(self.del_proxy)
+        self.app.post(
+            "/drop_proxy",
+            summary="Drop a proxy",
+        )(self.drop_proxy)
 
         self.app.post(
             "/reset_using_proxies",
