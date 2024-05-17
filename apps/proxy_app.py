@@ -56,17 +56,17 @@ class ProxiesDatabase:
         with self.lock:
             if status == "good":
                 logger.success(
-                    f"+ Add good proxy: [{latency:.2f}s] [{success_rate:.2f}] {server}"
+                    f"  + Add good proxy: [{latency:.2f}s] [{success_rate:.2f}] {server}"
                 )
                 self.df_good.loc[server] = new_row
             elif status == "bad":
-                logger.back(f"x Add bad proxy: {server}")
+                logger.back(f"  x Add bad proxy: {server}")
                 self.df_bad.loc[server] = new_row
             elif status == "using":
-                logger.note(f"= Add using proxy: {server}")
+                logger.note(f"  + Add using proxy: {server}")
                 self.df_using.loc[server] = new_row
             else:
-                logger.warn(f"Unknown proxy status: {status}")
+                logger.warn(f"  ? Unknown proxy status: {status}")
 
     def remove_proxy(
         self, server: str, status: Literal["good", "bad", "using"] = "good"
@@ -119,19 +119,19 @@ class ProxiesDatabase:
     def empty_good_proxies(self):
         old_good_proxies = self.get_good_proxies_list()
         self.df_good = self.default_df()
-        logger.success(f"> Empty {len(old_good_proxies)} good proxies")
+        logger.success(f"+ Empty {len(old_good_proxies)} good proxies")
         return old_good_proxies
 
     def empty_bad_proxies(self):
         old_bad_proxies = self.get_bad_proxies_list()
         self.df_bad = self.default_df()
-        logger.success(f"> Empty {len(old_bad_proxies)} bad proxies")
+        logger.success(f"+ Empty {len(old_bad_proxies)} bad proxies")
         return old_bad_proxies
 
     def empty_using_proxies(self):
         old_using_proxies = self.get_using_proxies_list()
         self.df_using = self.default_df()
-        logger.success(f"> Empty {len(old_using_proxies)} using proxies")
+        logger.success(f"+ Empty {len(old_using_proxies)} using proxies")
         return old_using_proxies
 
 
@@ -147,27 +147,48 @@ class ProxyApp:
         self.setup_routes()
         logger.success(f"> {PROXY_APP_ENVS['app_name']} - v{PROXY_APP_ENVS['version']}")
 
-    def refresh_proxies(self):
+    class RefreshProxiesPostItem(BaseModel):
+        refresh_good: Optional[bool] = False
+
+    def refresh_proxies(self, item: RefreshProxiesPostItem):
         logger.note(f"> Refreshing proxies")
         proxies = ProxyPool().get_proxies_list()
         proxies = list(set(proxies))
         benchmarker = ProxyBenchmarker()
         old_good_proxies = self.db.get_good_proxies_list()
         old_bad_proxies = self.db.get_bad_proxies_list()
-        self.db.empty_good_proxies()
-        proxies_to_test = list(set(proxies + old_good_proxies) - set(old_bad_proxies))
-        logger.mesg(
-            f"  - Retest {len(old_good_proxies)} good proxies, and skip {len(old_bad_proxies)} bad proxies\n"
-            f"  - Test {len(proxies_to_test)} new proxies"
+        old_using_proxies = self.db.get_using_proxies_list()
+        new_proxies = list(
+            set(proxies)
+            - set(old_good_proxies)
+            - set(old_bad_proxies)
+            - set(old_using_proxies)
+        )
+        if item.refresh_good:
+            proxies_to_test = list(set(new_proxies + old_good_proxies))
+            self.db.empty_good_proxies()
+            gs = "Test"
+        else:
+            proxies_to_test = new_proxies
+            gs = "Keep"
+        logger.file(
+            f"  * New  proxies (Test): {len(new_proxies)}\n"
+            f"  * Good proxies ({gs}): {len(old_good_proxies)}\n"
+            f"  * Bad  proxies (Skip): {len(old_bad_proxies)}"
         )
         benchmarker.batch_test_proxy(
             proxies_to_test,
             good_callback=self.db.add_good_proxy,
             bad_callback=self.db.add_bad_proxy,
         )
+        good_proxies_count = len(self.db.get_good_proxies_list())
+        bad_proxies_count = len(self.db.get_bad_proxies_list())
+        total_proxies_count = good_proxies_count + bad_proxies_count
+        logger.success(good_proxies_count, end="")
+        logger.note(f"/{total_proxies_count}")
         res = {
-            "total": len(proxies),
-            "usable": len(self.db.df_good),
+            "total": total_proxies_count,
+            "usable": good_proxies_count,
             "status": "refreshed",
         }
         return res
