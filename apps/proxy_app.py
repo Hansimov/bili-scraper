@@ -17,6 +17,7 @@ class ProxiesDatabase:
         "server": str,
         "latency": float,
         "last_checked": "datetime64[ns]",
+        "success_rate": float,
     }
     COLUMNS = list(COLUMN_DTYPES.keys())
     INDEX_COLUMNS = ["server"]
@@ -163,7 +164,7 @@ class ProxyApp:
             if usable_rows.empty:
                 logger.warn(f"> No usable proxy")
                 res = {
-                    "server": "No usable proxy",
+                    "server": "",
                     "latency": -1,
                     "success_rate": -1,
                     "status": "error",
