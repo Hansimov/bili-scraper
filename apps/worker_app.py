@@ -94,9 +94,9 @@ class Worker:
         wid: int = -1,
         proxy: str = None,
         mock: bool = False,
-        interval: float = 3.0,
+        interval: float = 2.5,
         retry_count: int = 3,
-        time_out: float = 2.5,
+        time_out: float = 2.0,
     ):
         self.wid = wid
         self.generator = generator
@@ -139,7 +139,7 @@ class Worker:
     def drop_proxy(self):
         # LINK apps/proxy_app.py#drop_proxy
         try:
-            res = requests.post(self.drop_proxy_api, data={"server": self.proxy})
+            requests.post(self.drop_proxy_api, json={"server": self.proxy})
         except Exception as e:
             pass
 
