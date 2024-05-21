@@ -188,7 +188,8 @@ class Worker:
 
     def run(self):
         if not self.proxy:
-            self.get_proxy()
+            with self.lock:
+                self.get_proxy()
 
         retry_last_params = False
         self.timer = Runtimer(verbose=False)

@@ -211,10 +211,8 @@ class ProxyApp:
             good_rows = self.db.df_good.sort_values(
                 by=["success_rate", "latency"], ascending=[False, True]
             )
-            using_rows = self.db.df_using
-            usable_rows = good_rows[~good_rows.index.isin(using_rows.index)]
-            if usable_rows.empty:
-                logger.warn(f"> No usable proxy")
+            if good_rows.empty:
+                logger.warn(f"> No usable good proxy")
                 res = {
                     "server": "",
                     "latency": -1,
@@ -223,14 +221,15 @@ class ProxyApp:
                 }
             else:
                 res = {
-                    "server": usable_rows.index[0],
-                    "latency": usable_rows.iloc[0]["latency"],
-                    "success_rate": usable_rows.iloc[0]["success_rate"],
+                    "server": good_rows.index[0],
+                    "latency": good_rows.iloc[0]["latency"],
+                    "success_rate": good_rows.iloc[0]["success_rate"],
                     "status": "ok",
                 }
                 self.db.add_using_proxy(
                     res["server"], res["latency"], res["success_rate"]
                 )
+                self.db.remove_good_proxy(res["server"])
 
         logger.success(
             f"> Get proxy: [{res['status']}] {res['server']}, {res['latency']:.2f}s, {res['success_rate']*100}%"
@@ -249,6 +248,8 @@ class ProxyApp:
         self.db.remove_good_proxy(server)
         self.db.add_bad_proxy(server)
         logger.success(f"+ Dropped proxy: {server}")
+        logger.note(f"  ({len(self.db.get_using_proxies_list())} using proxies)")
+        logger.mesg(f"  ({len(self.db.get_good_proxies_list())} good proxies left)")
         res = {
             "server": server,
             "status": "dropped",
