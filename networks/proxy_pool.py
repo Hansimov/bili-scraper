@@ -41,9 +41,9 @@ class ProxyBenchmarker:
         self.success_proxies = []
         self.timer = Runtimer(False)
         self.max_workers = os.cpu_count() * 64
-        self.retry_count = 3
+        self.retry_count = 5
         self.retry_interval = 0.1
-        self.accept_success_rate = 0.3
+        self.accept_success_rate = 0.2
 
     def test_proxy(self, proxy=None, good_callback=None, bad_callback=None):
         self.tested_count += 1

@@ -90,8 +90,8 @@ class Worker:
         proxy: str = None,
         mock: bool = False,
         interval: float = 2.5,
-        retry_count: int = 3,
-        time_out: float = 2.0,
+        retry_count: int = 15,
+        time_out: float = 2.5,
     ):
         self.wid = wid
         self.generator = generator
