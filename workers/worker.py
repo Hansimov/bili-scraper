@@ -13,7 +13,7 @@ class WorkerParamsGenerator:
     def __init__(self, region_codes: list[str] = [], mock: bool = False):
         self.mock = mock
         self.region_codes = region_codes
-
+        self.queue = []
         self.init_tids()
 
     def init_tids(self):
@@ -51,6 +51,8 @@ class WorkerParamsGenerator:
         return False
 
     def next(self):
+        if self.queue:
+            return self.queue.pop(0)
         if not self.is_current_region_exhausted:
             self.pn += 1
         else:
@@ -234,6 +236,9 @@ class Worker:
                 self.drop_proxy()
                 self.get_proxy()
                 retry_last_params = True
+                if not self.active:
+                    with self.lock:
+                        self.generator.queue.append((tid, pn))
             else:
                 logger.warn(f"  - Unknown condition: {task_str} [code={res_code}]")
 
