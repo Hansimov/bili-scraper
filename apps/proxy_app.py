@@ -2,11 +2,11 @@ import pandas as pd
 import threading
 import uvicorn
 
-from typing import Optional, List, Literal
-
+from datetime import datetime
 from fastapi import FastAPI, Body
 from pydantic import BaseModel
 from tclogger import logger
+from typing import Optional, List, Literal
 
 from apps.arg_parser import ArgParser
 from configs.envs import PROXY_APP_ENVS
@@ -144,6 +144,12 @@ class ProxyApp:
             version=PROXY_APP_ENVS["version"],
         )
         self.db = ProxiesDatabase()
+        self.last_refresh_time = None
+        self.is_refreshing_proxies = False
+        self.trigger_refresh_proxies_min_goods = 3
+        self.trigger_refresh_proxies_min_seconds = 30
+        self.empty_bad_proxies_time = None
+        self.trigger_empty_bad_proxies_min_seconds = 300
         self.setup_routes()
         logger.success(f"> {PROXY_APP_ENVS['app_name']} - v{PROXY_APP_ENVS['version']}")
 
@@ -151,7 +157,11 @@ class ProxyApp:
         refresh_good: Optional[bool] = False
 
     def refresh_proxies(self, item: RefreshProxiesPostItem):
-        logger.note(f"> Refreshing proxies")
+        start_refresh_time = datetime.now()
+        start_refresh_time_str = start_refresh_time.strftime("%Y-%m-%d %H:%M:%S")
+        logger.note(f"> Refreshing proxies", end=" ")
+        logger.mesg(f"[{start_refresh_time_str}]")
+        self.is_refreshing_proxies = True
         proxies = ProxyPool().get_proxies_list()
         proxies = list(set(proxies))
         benchmarker = ProxyBenchmarker()
@@ -184,8 +194,14 @@ class ProxyApp:
         good_proxies_count = len(self.db.get_good_proxies_list())
         bad_proxies_count = len(self.db.get_bad_proxies_list())
         total_proxies_count = good_proxies_count + bad_proxies_count
+        if self.empty_bad_proxies_time is None:
+            self.empty_bad_proxies_time = datetime.now()
+        self.last_refresh_time = datetime.now()
+        last_refresh_time_str = self.last_refresh_time.strftime("%Y-%m-%d %H:%M:%S")
+        self.is_refreshing_proxies = False
         logger.success(good_proxies_count, end="")
-        logger.note(f"/{total_proxies_count}")
+        logger.note(f"/{total_proxies_count}", end=" ")
+        logger.mesg(f"[{last_refresh_time_str}]")
         res = {
             "total": total_proxies_count,
             "usable": good_proxies_count,
@@ -235,6 +251,39 @@ class ProxyApp:
             f"> Get proxy: [{res['status']}] {res['server']}, {res['latency']:.2f}s, {res['success_rate']*100}%"
         )
 
+        # trigger refresh_proxies if requirements met
+        need_to_refresh_proxies = False
+        now = datetime.now()
+        if self.last_refresh_time:
+            last_refresh_time_delta_seconds = (
+                now - self.last_refresh_time
+            ).total_seconds()
+            need_to_refresh_proxies = (
+                (not self.is_refreshing_proxies)
+                and len(self.db.get_good_proxies_list())
+                < self.trigger_refresh_proxies_min_goods
+                and (
+                    last_refresh_time_delta_seconds
+                    >= self.trigger_refresh_proxies_min_seconds
+                )
+            )
+        else:
+            need_to_refresh_proxies = not self.is_refreshing_proxies
+
+        if need_to_refresh_proxies:
+            logger.note(f"> refresh_proxies triggered by get_proxy")
+            if self.empty_bad_proxies_time:
+                last_empty_bad_proxies_time_delta_seconds = (
+                    now - self.empty_bad_proxies_time
+                ).total_seconds()
+                if (
+                    last_empty_bad_proxies_time_delta_seconds
+                    >= self.trigger_empty_bad_proxies_min_seconds
+                ):
+                    self.db.empty_bad_proxies()
+                    self.empty_bad_proxies_time = datetime.now()
+            self.refresh_proxies(self.RefreshProxiesPostItem())
+
         return res
 
     class DropProxyPostItem(BaseModel):
@@ -256,8 +305,18 @@ class ProxyApp:
         }
         return res
 
+    class ResetUsingProxiesPostItem(BaseModel):
+        flag_as_good: Optional[bool] = True
+
     # ANCHOR[id=reset_using_proxies]
-    def reset_using_proxies(self):
+    def reset_using_proxies(self, item: ResetUsingProxiesPostItem):
+        if item.flag_as_good:
+            self.db.df_good = pd.concat(
+                [self.db.df_good, self.db.df_using], sort=False
+            ).drop_duplicates()
+            logger.note(
+                f"> Flag {len(self.db.get_good_proxies_list())} using proxies as good"
+            )
         old_using_proxies = self.db.empty_using_proxies()
         message = f"Reset {len(old_using_proxies)} using proxies"
         logger.warn(f"> {message}")
