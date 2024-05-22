@@ -7,7 +7,6 @@ from fastapi import FastAPI, Body
 from tclogger import logger
 from typing import Optional
 
-
 from apps.arg_parser import ArgParser
 from configs.envs import WORKER_APP_ENVS, PROXY_APP_ENVS
 from workers.worker import WorkerParamsGenerator, Worker
@@ -43,7 +42,7 @@ class WorkerApp:
         return data
 
     def create_workers(
-        self, max_workers: Optional[int] = Body(20), mock: Optional[bool] = Body(True)
+        self, max_workers: Optional[int] = Body(50), mock: Optional[bool] = Body(True)
     ):
         self.reset_using_proxies()
         self.workers = []
@@ -53,12 +52,19 @@ class WorkerApp:
 
     def start(
         self,
-        region_codes: Optional[list[str]] = Body(["game", "knowledge", "tech"]),
-        max_workers: Optional[int] = Body(20),
+        region_codes: Optional[list[str]] = Body(["knowledge", "tech"]),
+        max_workers: Optional[int] = Body(50),
+        start_tid: Optional[int] = Body(-1),
+        start_pn: Optional[int] = Body(-1),
         mock: Optional[bool] = Body(False),
     ):
         if not self.generator:
-            self.generator = WorkerParamsGenerator(region_codes=region_codes, mock=mock)
+            self.generator = WorkerParamsGenerator(
+                region_codes=region_codes,
+                start_tid=start_tid,
+                start_pn=start_pn,
+                mock=mock,
+            )
         self.create_workers(max_workers=max_workers, mock=mock)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:

@@ -10,14 +10,21 @@ from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API, REGION_CODE
 
 
 class WorkerParamsGenerator:
-    def __init__(self, region_codes: list[str] = [], mock: bool = False):
+    def __init__(
+        self,
+        region_codes: list[str] = [],
+        start_tid: int = -1,
+        start_pn: int = -1,
+        mock: bool = False,
+    ):
         self.mock = mock
         self.region_codes = region_codes
-        self.queue = []
+        self.start_tid = start_tid
+        self.start_pn = start_pn
         self.init_tids()
 
     def init_tids(self):
-        self.tid_idx = 0
+        self.queue = []
         main_regions = [REGION_CODES[region_code] for region_code in self.region_codes]
         self.regions = [
             region
@@ -25,9 +32,17 @@ class WorkerParamsGenerator:
             for region in main_region["children"].values()
         ]
         self.tids = [region["tid"] for region in self.regions]
-        self.is_current_region_exhausted = False
-        self.pn = 0
+        if self.start_tid != -1 and self.start_tid in self.tids:
+            self.tid_idx = self.tids.index(self.start_tid)
+        else:
+            self.tid_idx = 0
+        if self.start_pn != -1:
+            self.pn = self.start_pn
+        else:
+            self.pn = 0
         self.tid = self.get_tid()
+        self.queue.append((self.tid, self.pn))
+        self.is_current_region_exhausted = False
         logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
 
     def get_region(self):
