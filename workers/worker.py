@@ -25,6 +25,7 @@ class WorkerParamsGenerator:
 
     def init_tids(self):
         self.queue = []
+        self.exhausted_tids = []
         main_regions = [REGION_CODES[region_code] for region_code in self.region_codes]
         self.regions = [
             region
@@ -45,9 +46,10 @@ class WorkerParamsGenerator:
         self.is_current_region_exhausted = False
         logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
 
-    def get_region(self):
-        if self.tid_idx < len(self.regions):
-            return self.regions[self.tid_idx]
+    def get_region(self, tid: int):
+        if tid in self.tids:
+            idx = self.tids.index(tid)
+            return self.regions[idx]
         else:
             return {}
 
@@ -57,8 +59,10 @@ class WorkerParamsGenerator:
         else:
             return -1
 
-    def flag_current_region_exhausted(self):
-        self.is_current_region_exhausted = True
+    def flag_current_region_exhausted(self, exhausted_tid: int):
+        if exhausted_tid not in self.exhausted_tids:
+            self.exhausted_tids.append(exhausted_tid)
+            self.is_current_region_exhausted = True
 
     def is_terminated(self):
         if self.tid == -1 and self.pn == -1:
@@ -68,9 +72,7 @@ class WorkerParamsGenerator:
     def next(self):
         if self.queue:
             return self.queue.pop(0)
-        if not self.is_current_region_exhausted:
-            self.pn += 1
-        else:
+        if self.is_current_region_exhausted:
             self.tid_idx += 1
             if self.tid_idx < len(self.regions):
                 self.tid = self.get_tid()
@@ -79,6 +81,8 @@ class WorkerParamsGenerator:
                 self.tid = -1
                 self.pn = -1
             self.is_current_region_exhausted = False
+        else:
+            self.pn += 1
         return self.tid, self.pn
 
 
@@ -226,8 +230,8 @@ class Worker:
                     tid, pn = tid, pn
                     retry_last_params = False
 
-            region_name = self.generator.get_region().get("name", "Unknown")
-            task_str = f"wid={self.wid}, tid={tid}, pn={pn}, region={region_name}"
+            region_name = self.generator.get_region(tid).get("name", "Unknown")
+            task_str = f"region={region_name}, tid={tid}, pn={pn}, wid={self.wid: >2}"
             logger.note(f"> GET: {task_str}")
 
             if tid == -1 and pn == -1:
@@ -240,9 +244,9 @@ class Worker:
             res_condition = self.response_categorizer.categorize(res_json)
 
             if res_condition == "end_of_region":
-                logger.success(f"  + End of region: {region_name}")
+                logger.mesg(f"  ! End: {task_str}")
                 with self.lock:
-                    self.generator.flag_current_region_exhausted()
+                    self.generator.flag_current_region_exhausted(exhausted_tid=tid)
             elif res_condition == "normal":
                 logger.success(f"  + GOOD: {task_str}", end=" ")
                 logger.mesg(f"<{len(archives)} videos>")
