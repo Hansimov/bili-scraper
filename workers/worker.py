@@ -1,9 +1,9 @@
 import requests
+import threading
 import time
 
 from tclogger import logger, Runtimer
 from typing import Literal
-
 
 from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS, PROXY_APP_ENVS
 from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API, REGION_CODES
@@ -118,6 +118,7 @@ class Worker:
         self.proxy = proxy
         self.mock = mock
         self.active = False
+        self.condition = threading.Condition()
         self.interval = interval
         self.retry_count = retry_count
         self.time_out = time_out
@@ -205,6 +206,15 @@ class Worker:
 
         return res_json
 
+    def deactivate(self):
+        with self.condition:
+            self.active = False
+
+    def activate(self):
+        with self.condition:
+            self.active = True
+            self.condition.notify()
+
     def run(self):
         if not self.proxy:
             with self.lock:
@@ -214,14 +224,16 @@ class Worker:
         self.timer = Runtimer(verbose=False)
 
         while True:
+            with self.condition:
+                while not self.active:
+                    self.condition.wait()
+
             self.timer.start_time()
-            if not self.active:
-                break
 
             with self.lock:
                 if self.generator.is_terminated():
-                    self.active = False
-                    break
+                    self.deactivate()
+                    continue
 
             with self.lock:
                 if not retry_last_params:

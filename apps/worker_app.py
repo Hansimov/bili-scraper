@@ -5,7 +5,7 @@ import uvicorn
 
 from fastapi import FastAPI, Body
 from tclogger import logger
-from typing import Optional
+from typing import Optional, List
 
 from apps.arg_parser import ArgParser
 from configs.envs import WORKER_APP_ENVS, PROXY_APP_ENVS
@@ -45,7 +45,7 @@ class WorkerApp:
         self, max_workers: Optional[int] = Body(50), mock: Optional[bool] = Body(True)
     ):
         self.reset_using_proxies()
-        self.workers = []
+        self.workers: List[Worker] = []
         for i in range(max_workers):
             worker = Worker(wid=i, generator=self.generator, lock=self.lock, mock=mock)
             self.workers.append(worker)
@@ -76,8 +76,16 @@ class WorkerApp:
 
     def stop(self):
         for worker in self.workers:
-            worker.active = False
-        logger.success(f"> All workers stopped")
+            worker.deactivate()
+        logger.mesg(f"> All workers stopped")
+
+    def resume(self):
+        wake_count = 0
+        for worker in self.workers:
+            if not worker.active:
+                worker.activate()
+                wake_count += 1
+        logger.mesg(f"> {wake_count} workers resumed")
 
     def setup_routes(self):
         self.app.post(
@@ -89,6 +97,11 @@ class WorkerApp:
             "/stop",
             summary="Stop all workers",
         )(self.stop)
+
+        self.app.post(
+            "/resume",
+            summary="Resume inactive workers",
+        )(self.resume)
 
 
 app = WorkerApp().app
