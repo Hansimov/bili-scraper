@@ -329,17 +329,16 @@ class ProxyApp:
         }
         return res
 
-    def resume_workers(self, num: Optional[int] = -1):
+    def resume_workers(self, num: int = -1):
         # LINK apps/worker_app.py#resume
-        api = f"http://127.0.0.1:{WORKER_APP_ENVS['port']}/resume"
+        worker_resume_api = f"http://127.0.0.1:{WORKER_APP_ENVS['port']}/resume"
+        logger.note(f"> Resuming workers")
         try:
-            res = requests.post(api, json={"num": num})
+            res = requests.post(worker_resume_api, json={"num": num})
             data = res.json()
         except Exception as e:
-            data = {
-                "status": "error",
-                "message": str(e),
-            }
+            data = {"status": "error", "message": str(e), "count": -1}
+        logger.mesg(f"√ Resume workers: [{data.get('status')}] {data.get('count')}")
         return data
 
     def setup_routes(self):

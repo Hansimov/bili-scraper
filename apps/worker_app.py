@@ -4,6 +4,7 @@ import threading
 import uvicorn
 
 from fastapi import FastAPI, Body
+from pydantic import BaseModel
 from tclogger import logger
 from typing import Optional, List
 
@@ -82,8 +83,12 @@ class WorkerApp:
             worker.deactivate()
         logger.mesg(f"> All workers stopped")
 
+    class ResumePostItem(BaseModel):
+        num: Optional[int] = -1
+
     # ANCHOR[id=resume]
-    def resume(self, num: Optional[int] = Body(-1)):
+    def resume(self, item: ResumePostItem):
+        num = item.num
         if num == -1:
             num = self.max_workers
         logger.note(f"> Resuming workers: {num}")
@@ -99,6 +104,10 @@ class WorkerApp:
             "status": "resumed",
             "count": resume_count,
         }
+
+    def __del__(self):
+        logger.note(f"> Shutting down: {WORKER_APP_ENVS['app_name']}")
+        self.reset_using_proxies()
 
     def setup_routes(self):
         self.app.post(
