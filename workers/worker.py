@@ -206,21 +206,19 @@ class Worker:
 
         return res_json
 
-    def deactivate(self):
-        with self.condition:
-            self.active = False
-
     def activate(self):
         with self.condition:
             self.active = True
             self.condition.notify()
+
+    def deactivate(self):
+        self.active = False
 
     def run(self):
         if not self.proxy:
             with self.lock:
                 self.get_proxy()
 
-        retry_last_params = False
         self.timer = Runtimer(verbose=False)
 
         while True:
@@ -236,11 +234,7 @@ class Worker:
                     continue
 
             with self.lock:
-                if not retry_last_params:
-                    tid, pn = self.generator.next()
-                else:
-                    tid, pn = tid, pn
-                    retry_last_params = False
+                tid, pn = self.generator.next()
 
             region_name = self.generator.get_region(tid).get("name", "Unknown")
             task_str = f"region={region_name}, tid={tid}, pn={pn}, wid={self.wid: >2}"
@@ -267,10 +261,8 @@ class Worker:
                 logger.warn(f"    {res_json.get('message', '')}")
                 self.drop_proxy()
                 self.get_proxy()
-                retry_last_params = True
-                if not self.active:
-                    with self.lock:
-                        self.generator.queue.append((tid, pn))
+                with self.lock:
+                    self.generator.queue.append((tid, pn))
             else:
                 logger.warn(f"  - Unknown condition: {task_str} [code={res_code}]")
 
