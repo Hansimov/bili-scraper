@@ -31,6 +31,7 @@ class WorkerApp:
     def reset_using_proxies(self):
         # LINK apps/proxy_app.py#reset_using_proxies
         api = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}/reset_using_proxies"
+        logger.note(f"> Resetting using_proxies")
         try:
             res = requests.post(api)
             data = res.json()
@@ -39,10 +40,11 @@ class WorkerApp:
                 "message": str(e),
                 "status": "error",
             }
+        logger.mesg(f"√ Reset using_proxies {data.get('status')}")
         return data
 
     def create_workers(
-        self, max_workers: Optional[int] = Body(50), mock: Optional[bool] = Body(True)
+        self, max_workers: Optional[int] = Body(40), mock: Optional[bool] = Body(True)
     ):
         self.reset_using_proxies()
         self.workers: List[Worker] = []
@@ -53,7 +55,7 @@ class WorkerApp:
     def start(
         self,
         region_codes: Optional[list[str]] = Body(["knowledge", "tech"]),
-        max_workers: Optional[int] = Body(50),
+        max_workers: Optional[int] = Body(40),
         start_tid: Optional[int] = Body(-1),
         start_pn: Optional[int] = Body(-1),
         mock: Optional[bool] = Body(False),
@@ -65,6 +67,7 @@ class WorkerApp:
                 start_pn=start_pn,
                 mock=mock,
             )
+        self.max_workers = max_workers
         self.create_workers(max_workers=max_workers, mock=mock)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
@@ -79,13 +82,22 @@ class WorkerApp:
             worker.deactivate()
         logger.mesg(f"> All workers stopped")
 
-    def resume(self):
-        wake_count = 0
+    def resume(self, num: Optional[int] = Body(-1)):
+        if num == -1:
+            num = self.max_workers
+        logger.note(f"> Resuming workers: {num}")
+        resume_count = 0
         for worker in self.workers:
             if not worker.active:
                 worker.activate()
-                wake_count += 1
-        logger.mesg(f"> {wake_count} workers resumed")
+                resume_count += 1
+            if resume_count >= num:
+                break
+        logger.mesg(f"√ {resume_count} workers resumed")
+        return {
+            "status": "resumed",
+            "count": resume_count,
+        }
 
     def setup_routes(self):
         self.app.post(
