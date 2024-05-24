@@ -1,4 +1,5 @@
 import pandas as pd
+import requests
 import threading
 import uvicorn
 
@@ -9,7 +10,7 @@ from tclogger import logger
 from typing import Optional, List, Literal
 
 from apps.arg_parser import ArgParser
-from configs.envs import PROXY_APP_ENVS
+from configs.envs import PROXY_APP_ENVS, WORKER_APP_ENVS
 from networks.proxy_pool import ProxyPool, ProxyBenchmarker
 
 
@@ -207,10 +208,13 @@ class ProxyApp:
             "usable": good_proxies_count,
             "status": "refreshed",
         }
-        return res
 
-    def get_all_proxies(self):
-        logger.note(f"> Return all proxies")
+        if good_proxies_count > self.trigger_refresh_proxies_min_goods:
+            self.resume_workers(
+                num=good_proxies_count - self.trigger_refresh_proxies_min_goods
+            )
+
+        return res
 
     # ANCHOR[id=get_proxy]
     def get_proxy(self, mock: Optional[bool] = False):
@@ -283,6 +287,8 @@ class ProxyApp:
                     self.db.empty_bad_proxies()
                     self.empty_bad_proxies_time = datetime.now()
             self.refresh_proxies(self.RefreshProxiesPostItem())
+            # TODO: the worker that triggers refresh_proxies would get invalid proxy,
+            # as the res is not re-fetched from the refreshed new proxies
 
         return res
 
@@ -326,12 +332,19 @@ class ProxyApp:
         }
         return res
 
-    def setup_routes(self):
-        self.app.get(
-            "/all_proxies",
-            summary="Get all proxies",
-        )(self.get_all_proxies)
+    def resume_workers(self, num: Optional[int] = -1):
+        api = f"http://127.0.0.1:{WORKER_APP_ENVS['port']}/resume"
+        try:
+            res = requests.post(api, json={"num": num})
+            data = res.json()
+        except Exception as e:
+            data = {
+                "status": "error",
+                "message": str(e),
+            }
+        return data
 
+    def setup_routes(self):
         self.app.get(
             "/get_proxy",
             summary="Get a usable proxy",
