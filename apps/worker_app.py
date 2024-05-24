@@ -31,16 +31,16 @@ class WorkerApp:
     def reset_using_proxies(self):
         # LINK apps/proxy_app.py#reset_using_proxies
         api = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}/reset_using_proxies"
-        logger.note(f"> Resetting using_proxies")
+        logger.note(f"> Resetting using proxies")
         try:
             res = requests.post(api)
             data = res.json()
         except Exception as e:
             data = {
-                "message": str(e),
                 "status": "error",
+                "message": str(e),
             }
-        logger.mesg(f"√ Reset using_proxies {data.get('status')}")
+        logger.mesg(f"√ Reset using proxies: {data.get('status')}")
         return data
 
     def create_workers(
@@ -82,6 +82,7 @@ class WorkerApp:
             worker.deactivate()
         logger.mesg(f"> All workers stopped")
 
+    # ANCHOR[id=resume]
     def resume(self, num: Optional[int] = Body(-1)):
         if num == -1:
             num = self.max_workers

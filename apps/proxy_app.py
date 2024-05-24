@@ -311,12 +311,9 @@ class ProxyApp:
         }
         return res
 
-    class ResetUsingProxiesPostItem(BaseModel):
-        flag_as_good: Optional[bool] = True
-
     # ANCHOR[id=reset_using_proxies]
-    def reset_using_proxies(self, item: ResetUsingProxiesPostItem):
-        if item.flag_as_good:
+    def reset_using_proxies(self, flag_as_good: Optional[bool] = Body(True)):
+        if flag_as_good:
             self.db.df_good = pd.concat(
                 [self.db.df_good, self.db.df_using], sort=False
             ).drop_duplicates()
@@ -325,14 +322,15 @@ class ProxyApp:
             )
         old_using_proxies = self.db.empty_using_proxies()
         message = f"Reset {len(old_using_proxies)} using proxies"
-        logger.warn(f"> {message}")
+        logger.mesg(f"> {message}")
         res = {
-            "message": message,
             "status": "ok",
+            "message": message,
         }
         return res
 
     def resume_workers(self, num: Optional[int] = -1):
+        # LINK apps/worker_app.py#resume
         api = f"http://127.0.0.1:{WORKER_APP_ENVS['port']}/resume"
         try:
             res = requests.post(api, json={"num": num})
