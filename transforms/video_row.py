@@ -167,7 +167,9 @@ class VideoInfoConverter:
         new_sql_values = tuple(new_sql_values)
         return new_sql_values
 
-    def to_sql_query_and_values(self, video_info: dict, table_name: str = "bili_videos"):
+    def to_sql_query_and_values(
+        self, video_info: dict, table_name: str = "bili_videos", is_many: bool = False
+    ):
         """Basic module usage - Psycopg 2.9.9 documentation:
         - https://www.psycopg.org/docs/usage.html#passing-parameters-to-sql-queries
         - https://www.psycopg.org/docs/usage.html#adaptation-of-python-values-to-sql-types
@@ -175,7 +177,10 @@ class VideoInfoConverter:
         """
         sql_row = self.to_sql_row(video_info)
         values_placeholders = ", ".join(["%s"] * len(sql_row))
-        sql_query = f"INSERT INTO {table_name} VALUES ({values_placeholders})"
+        if not is_many:
+            sql_query = f"INSERT INTO {table_name} VALUES ({values_placeholders})"
+        else:
+            sql_query = f"INSERT INTO {table_name} VALUES %s"
         sql_values = self.serialize_sql_row(sql_row)
         return sql_query, sql_values
 
@@ -189,23 +194,32 @@ if __name__ == "__main__":
     if res.status_code == 200:
         res_json = res.json()
 
-    video_info_dict = res_json["data"]["archives"][0]
-
-    logger.note("Converting video info to SQL row:")
+    archives = res_json["data"]["archives"]
     converter = VideoInfoConverter()
-    sql_row = converter.to_sql_row(video_info_dict)
-    logger.mesg(sql_row)
 
-    logger.note("Converting video info to SQL query and values:")
-    sql_query, sql_values = converter.to_sql_query_and_values(video_info_dict)
-    logger.mesg(sql_query)
-    logger.mesg(sql_values)
+    video_infos = []
+    sql_values_list = []
+    for i in range(3):
+        video_info = archives[i]
+        video_infos.append(video_info)
+
+        logger.note("> Converting video info to SQL row:")
+        sql_row = converter.to_sql_row(video_info)
+        logger.mesg(sql_row)
+
+        logger.note("> Converting video info to SQL query and values:")
+        sql_query, sql_values = converter.to_sql_query_and_values(
+            video_info, is_many=True
+        )
+        sql_values_list.append(sql_values)
+        logger.mesg(sql_query)
+        logger.mesg(sql_values)
 
     from networks.sql import SQLOperator
 
     logger.note("Inserting video info:")
     sql = SQLOperator()
-    res = sql.exec(sql_query, sql_values)
+    res = sql.exec(sql_query, sql_values_list, is_fetchall=True, is_many=True)
     logger.success(res)
 
     # python -m transforms.video_row
