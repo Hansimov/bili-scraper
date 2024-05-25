@@ -221,7 +221,7 @@ class Worker:
         for archive in archives:
             sql_row = self.converter.to_sql_row(archive)
             sql_query, sql_values = self.converter.to_sql_query_and_values(
-                sql_row, table_name="bili_videos", is_many=True
+                sql_row, table_name="videos", is_many=True
             )
             sql_values_list.append(sql_values)
         if sql_values_list:
@@ -279,8 +279,9 @@ class Worker:
             elif res_condition == "normal":
                 logger.success(f"  + GOOD: {task_str}", end=" ")
                 logger.mesg(f"<{len(archives)} videos>")
-                self.insert_rows(archives)
-                logger.success(f"  + Inserted: {len(archives)} rows")
+                with self.lock:
+                    self.insert_rows(archives)
+                    logger.success(f"  + Inserted: {len(archives)} rows")
             elif res_condition == "network_error":
                 logger.warn(f"  × BAD: {task_str} [code={res_code}]")
                 logger.warn(f"    {res_json.get('message', '')}")

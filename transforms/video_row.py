@@ -88,7 +88,18 @@ class VideoInfoConverter:
     COLUMNS_RENAME_MAP = {
         "desc": "description",
         "like": "thumb_up",
+        "videos": "video_parts",
     }
+    COLUMNS_TO_IGNORE = [
+        "face",
+        "dislike",
+        "vt",
+        "vv",
+        "dynamic",
+        "short_link_v2",
+        "cover43",
+        *OTHER_COLUMNS.keys(),
+    ]
 
     COLUMNS = {
         **ID_COLUMNS,
@@ -127,13 +138,16 @@ class VideoInfoConverter:
                 new_video_info[k] = v
         return new_video_info
 
+    def get_now_timestamp(self):
+        return int(datetime.now().timestamp())
+
     def extra(self, video_info: dict):
         new_video_info = video_info
         new_video_info["insert_at"] = self.get_now_timestamp()
         return new_video_info
 
     def sort(self, video_info: dict):
-        """sort the keys in the order of self.COLUMNS"""
+        """Sort the keys in the order of self.COLUMNS"""
         new_video_info = {}
         for k in self.COLUMNS.keys():
             if k in video_info:
@@ -142,12 +156,15 @@ class VideoInfoConverter:
                 new_video_info[k] = None
         return new_video_info
 
-    def get_now_timestamp(self):
-        return int(datetime.now().timestamp())
+    def ignore(self, video_info: dict):
+        new_video_info = {
+            k: v for k, v in video_info.items() if k not in self.COLUMNS_TO_IGNORE
+        }
+        return new_video_info
 
     def to_sql_row(self, video_info: dict):
         new_video_info = video_info
-        for method in [self.flatten, self.rename, self.extra, self.sort]:
+        for method in [self.flatten, self.rename, self.extra, self.sort, self.ignore]:
             new_video_info = method(new_video_info)
         return new_video_info
 
@@ -168,7 +185,7 @@ class VideoInfoConverter:
         return new_sql_values
 
     def to_sql_query_and_values(
-        self, video_info: dict, table_name: str = "bili_videos", is_many: bool = False
+        self, video_info: dict, table_name: str = "videos", is_many: bool = False
     ):
         """Basic module usage - Psycopg 2.9.9 documentation:
         - https://www.psycopg.org/docs/usage.html#passing-parameters-to-sql-queries
