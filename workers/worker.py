@@ -33,6 +33,8 @@ class WorkerParamsGenerator:
             for region in main_region["children"].values()
         ]
         self.tids = [region["tid"] for region in self.regions]
+        logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
+
         if self.start_tid != -1 and self.start_tid in self.tids:
             self.tid_idx = self.tids.index(self.start_tid)
         else:
@@ -42,9 +44,10 @@ class WorkerParamsGenerator:
         else:
             self.pn = 0
         self.tid = self.get_tid()
+
         self.queue.append((self.tid, self.pn))
         self.is_current_region_exhausted = False
-        logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
+        logger.note(f"> Start: tid={self.tid}, pn={self.pn}")
 
     def get_region(self, tid: int):
         if tid in self.tids:
@@ -72,9 +75,11 @@ class WorkerParamsGenerator:
     def next(self):
         if self.queue:
             return self.queue.pop(0)
+        if self.tid == -1 and self.pn == -1:
+            return -1, -1
         if self.is_current_region_exhausted:
             self.tid_idx += 1
-            if self.tid_idx < len(self.regions):
+            if self.tid_idx < len(self.tids):
                 self.tid = self.get_tid()
                 self.pn = 1
             else:
@@ -213,6 +218,7 @@ class Worker:
 
     def deactivate(self):
         self.active = False
+        logger.mesg(f"> Deactivate worker {self.wid}")
 
     def run(self):
         if not self.proxy:
@@ -231,6 +237,7 @@ class Worker:
             with self.lock:
                 if self.generator.is_terminated():
                     self.deactivate()
+                    logger.file("=" * 20 + " [Generator Terminated] " + "=" * 20)
                     continue
 
             with self.lock:
