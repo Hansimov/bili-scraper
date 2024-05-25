@@ -10,6 +10,7 @@ from typing import Optional, List
 
 from apps.arg_parser import ArgParser
 from configs.envs import WORKER_APP_ENVS, PROXY_APP_ENVS
+from networks.sql import SQLOperator
 from workers.worker import WorkerParamsGenerator, Worker
 
 
@@ -24,6 +25,7 @@ class WorkerApp:
         self.setup_routes()
         self.workers = []
         self.generator = None
+        self.sql = None
         self.lock = threading.Lock()
         logger.success(
             f"> {WORKER_APP_ENVS['app_name']} - v{WORKER_APP_ENVS['version']}"
@@ -50,7 +52,9 @@ class WorkerApp:
         self.reset_using_proxies()
         self.workers: List[Worker] = []
         for i in range(max_workers):
-            worker = Worker(wid=i, generator=self.generator, lock=self.lock, mock=mock)
+            worker = Worker(
+                wid=i, generator=self.generator, sql=self.sql, lock=self.lock, mock=mock
+            )
             self.workers.append(worker)
 
     def start(
@@ -68,6 +72,8 @@ class WorkerApp:
                 start_pn=start_pn,
                 mock=mock,
             )
+        if not self.sql:
+            self.sql = SQLOperator()
         self.max_workers = max_workers
         self.create_workers(max_workers=max_workers, mock=mock)
 

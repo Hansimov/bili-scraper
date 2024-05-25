@@ -32,7 +32,7 @@ class SQLOperator:
         self,
         query: str,
         values: Union[Tuple, List[Tuple]] = None,
-        is_fetchall: bool = True,
+        is_fetchall: bool = False,
         is_many: bool = False,
     ):
         if not is_many:

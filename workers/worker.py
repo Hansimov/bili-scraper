@@ -7,6 +7,8 @@ from typing import Literal
 
 from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS, PROXY_APP_ENVS
 from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API, REGION_CODES
+from transforms.video_row import VideoInfoConverter
+from networks.sql import SQLOperator
 
 
 class WorkerParamsGenerator:
@@ -109,7 +111,8 @@ class Worker:
     def __init__(
         self,
         generator: WorkerParamsGenerator,
-        lock,
+        sql: SQLOperator,
+        lock: threading.Lock,
         wid: int = -1,
         proxy: str = None,
         mock: bool = False,
@@ -128,6 +131,8 @@ class Worker:
         self.retry_count = retry_count
         self.time_out = time_out
         self.response_categorizer = ResponseCategorizer()
+        self.converter = VideoInfoConverter()
+        self.sql = sql
         self.proxy_endpoint = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}"
         self.get_proxy_api = f"{self.proxy_endpoint}/get_proxy"
         self.drop_proxy_api = f"{self.proxy_endpoint}/drop_proxy"
@@ -211,6 +216,17 @@ class Worker:
 
         return res_json
 
+    def insert_rows(self, archives: list):
+        sql_values_list = []
+        for archive in archives:
+            sql_row = self.converter.to_sql_row(archive)
+            sql_query, sql_values = self.converter.to_sql_query_and_values(
+                sql_row, table_name="bili_videos", is_many=True
+            )
+            sql_values_list.append(sql_values)
+        if sql_values_list:
+            self.sql.exec(sql_query, sql_values_list, is_many=True)
+
     def activate(self):
         with self.condition:
             self.active = True
@@ -263,6 +279,8 @@ class Worker:
             elif res_condition == "normal":
                 logger.success(f"  + GOOD: {task_str}", end=" ")
                 logger.mesg(f"<{len(archives)} videos>")
+                self.insert_rows(archives)
+                logger.success(f"  + Inserted: {len(archives)} rows")
             elif res_condition == "network_error":
                 logger.warn(f"  × BAD: {task_str} [code={res_code}]")
                 logger.warn(f"    {res_json.get('message', '')}")
