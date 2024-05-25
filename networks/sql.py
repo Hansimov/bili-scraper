@@ -1,6 +1,8 @@
 import psycopg2
+import psycopg2.extras
 
 from tclogger import logger
+from typing import Union, Tuple, List
 
 from configs.envs import SQL_ENVS
 
@@ -26,14 +28,29 @@ class SQLOperator:
         self.cur = self.conn.cursor()
         logger.success(f"+ Connected to [{self.dbname}] as ({self.user})")
 
-    def exec(self, query: str, values=None):
-        self.cur.execute(query, values)
-        try:
-            res = self.cur.fetchall()
-        except Exception as e:
+    def exec(
+        self,
+        query: str,
+        values: Union[Tuple, List[Tuple]] = None,
+        is_fetchall: bool = True,
+        is_many: bool = False,
+    ):
+        if not is_many:
+            self.cur.execute(query, values)
+        else:
+            # https://www.psycopg.org/docs/extras.html#psycopg2.extras.execute_values
+            psycopg2.extras.execute_values(cur=self.cur, sql=query, argslist=values)
+
+        if is_fetchall:
+            try:
+                res = self.cur.fetchall()
+            except Exception as e:
+                res = None
+                if "no results to fetch" not in str(e):
+                    logger.warn(e)
+        else:
             res = None
-            if "no results to fetch" not in str(e):
-                logger.warn(e)
+
         self.conn.commit()
         return res
 
