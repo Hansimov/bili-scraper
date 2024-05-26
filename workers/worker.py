@@ -233,7 +233,10 @@ class Worker:
             )
             sql_values_list.append(sql_values)
         if sql_values_list:
-            self.sql.exec(sql_query, sql_values_list, is_many=True)
+            try:
+                self.sql.exec(sql_query, sql_values_list, is_many=True)
+            except Exception as e:
+                logger.warn(f"  × Insert error: {e}")
 
     def activate(self):
         with self.condition:
@@ -258,14 +261,12 @@ class Worker:
 
             self.timer.start_time()
 
-            with self.lock:
-                if self.generator.is_terminated():
-                    self.deactivate()
-                    logger.file("=" * 20 + " [Generator Terminated] " + "=" * 20)
-                    break
+            if self.generator.is_terminated():
+                self.deactivate()
+                logger.file("=" * 20 + " [Generator Terminated] " + "=" * 20)
+                break
 
-            with self.lock:
-                tid, pn = self.generator.next()
+            tid, pn = self.generator.next()
 
             region_name = self.generator.get_region(tid).get("name", "Unknown")
             task_str = f"region={region_name}, tid={tid}, pn={pn}, wid={self.wid: >2}"
@@ -278,8 +279,7 @@ class Worker:
 
             if res_condition == "end_of_region":
                 logger.mesg(f"  ! End: {task_str}")
-                with self.lock:
-                    self.generator.flag_current_region_exhausted(exhausted_tid=tid)
+                self.generator.flag_current_region_exhausted(exhausted_tid=tid)
             elif res_condition == "normal":
                 logger.success(f"  + GOOD: {task_str}", end=" ")
                 logger.mesg(f"<{len(archives)} videos>")
@@ -291,8 +291,7 @@ class Worker:
                 logger.warn(f"    {res_json.get('message', '')}")
                 self.drop_proxy()
                 self.get_proxy()
-                with self.lock:
-                    self.generator.queue.append((tid, pn))
+                self.generator.append_queue(tid, pn)
             else:
                 logger.warn(f"  - Unknown condition: {task_str} [code={res_code}]")
 
