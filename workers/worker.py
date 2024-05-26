@@ -254,7 +254,7 @@ class Worker:
                 if self.generator.is_terminated():
                     self.deactivate()
                     logger.file("=" * 20 + " [Generator Terminated] " + "=" * 20)
-                    continue
+                    break
 
             with self.lock:
                 tid, pn = self.generator.next()
@@ -262,10 +262,6 @@ class Worker:
             region_name = self.generator.get_region(tid).get("name", "Unknown")
             task_str = f"region={region_name}, tid={tid}, pn={pn}, wid={self.wid: >2}"
             logger.note(f"> GET: {task_str}")
-
-            if tid == -1 and pn == -1:
-                logger.success(f"[Finished]")
-                break
 
             res_json = self.get_page(tid=tid, pn=pn)
             archives = res_json.get("data", {}).get("archives", [])
