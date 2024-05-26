@@ -109,29 +109,38 @@ class ProxiesDatabase:
         return self.remove_proxy(server, "using")
 
     def get_good_proxies_list(self) -> List[str]:
-        return self.df_good.index.tolist()
+        with self.lock:
+            res = self.df_good.index.tolist()
+        return res
 
     def get_bad_proxies_list(self) -> List[str]:
-        return self.df_bad.index.tolist()
+        with self.lock:
+            res = self.df_bad.index.tolist()
+        return res
 
     def get_using_proxies_list(self) -> List[str]:
-        return self.df_using.index.tolist()
+        with self.lock:
+            res = self.df_using.index.tolist()
+        return res
 
     def empty_good_proxies(self):
         old_good_proxies = self.get_good_proxies_list()
-        self.df_good = self.default_df()
+        with self.lock:
+            self.df_good = self.default_df()
         logger.success(f"+ Empty {len(old_good_proxies)} good proxies")
         return old_good_proxies
 
     def empty_bad_proxies(self):
         old_bad_proxies = self.get_bad_proxies_list()
-        self.df_bad = self.default_df()
+        with self.lock:
+            self.df_bad = self.default_df()
         logger.success(f"+ Empty {len(old_bad_proxies)} bad proxies")
         return old_bad_proxies
 
     def empty_using_proxies(self):
         old_using_proxies = self.get_using_proxies_list()
-        self.df_using = self.default_df()
+        with self.lock:
+            self.df_using = self.default_df()
         logger.success(f"+ Empty {len(old_using_proxies)} using proxies")
         return old_using_proxies
 
