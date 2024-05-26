@@ -20,6 +20,7 @@ class WorkerParamsGenerator:
         mock: bool = False,
     ):
         self.mock = mock
+        self.lock = threading.Lock()
         self.region_codes = region_codes
         self.start_tid = start_tid
         self.start_pn = start_pn
@@ -65,32 +66,39 @@ class WorkerParamsGenerator:
             return -1
 
     def flag_current_region_exhausted(self, exhausted_tid: int):
-        if exhausted_tid not in self.exhausted_tids:
-            self.exhausted_tids.append(exhausted_tid)
-            self.is_current_region_exhausted = True
+        with self.lock:
+            if exhausted_tid not in self.exhausted_tids:
+                self.exhausted_tids.append(exhausted_tid)
+                self.is_current_region_exhausted = True
 
     def is_terminated(self):
-        if self.tid == -1 and self.pn == -1:
-            return True
-        return False
+        with self.lock:
+            if self.tid == -1 and self.pn == -1:
+                return True
+            return False
+
+    def append_queue(self, tid: int, pn: int):
+        with self.lock:
+            self.queue.append((tid, pn))
 
     def next(self):
-        if self.queue:
-            return self.queue.pop(0)
-        if self.tid == -1 and self.pn == -1:
-            return -1, -1
-        if self.is_current_region_exhausted:
-            self.tid_idx += 1
-            if self.tid_idx < len(self.tids):
-                self.tid = self.get_tid()
-                self.pn = 1
+        with self.lock:
+            if self.queue:
+                return self.queue.pop(0)
+            if self.tid == -1 and self.pn == -1:
+                return (-1, -1)
+            if self.is_current_region_exhausted:
+                self.tid_idx += 1
+                if self.tid_idx < len(self.tids):
+                    self.tid = self.get_tid()
+                    self.pn = 1
+                else:
+                    self.tid = -1
+                    self.pn = -1
+                self.is_current_region_exhausted = False
             else:
-                self.tid = -1
-                self.pn = -1
-            self.is_current_region_exhausted = False
-        else:
-            self.pn += 1
-        return self.tid, self.pn
+                self.pn += 1
+            return self.tid, self.pn
 
 
 class ResponseCategorizer:
