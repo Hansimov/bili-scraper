@@ -286,9 +286,11 @@ class ProxyApp:
                 ):
                     self.db.empty_bad_proxies()
                     self.empty_bad_proxies_time = datetime.now()
-            self.refresh_proxies(self.RefreshProxiesPostItem())
-            # TODO: the worker that triggers refresh_proxies would get invalid proxy,
-            # as the res is not re-fetched from the refreshed new proxies
+            thread = threading.Thread(
+                target=self.refresh_proxies,
+                args=(self.RefreshProxiesPostItem(),),
+            )
+            thread.start()
 
         return res
 
