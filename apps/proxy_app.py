@@ -135,6 +135,30 @@ class ProxiesDatabase:
         logger.success(f"+ Empty {len(old_using_proxies)} using proxies")
         return old_using_proxies
 
+    def pop_best_proxy(self) -> dict:
+        """Get the proxy with highest success_rate and lowest latency, and not in using list"""
+        with self.lock:
+            good_rows = self.df_good.sort_values(
+                by=["success_rate", "latency"], ascending=[False, True]
+            )
+        if good_rows.empty:
+            res = {
+                "server": "",
+                "latency": -1,
+                "success_rate": -1,
+                "status": "error",
+            }
+        else:
+            res = {
+                "server": good_rows.index[0],
+                "latency": good_rows.iloc[0]["latency"],
+                "success_rate": good_rows.iloc[0]["success_rate"],
+                "status": "ok",
+            }
+            self.add_using_proxy(res["server"], res["latency"], res["success_rate"])
+            self.remove_good_proxy(res["server"])
+        return res
+
 
 class ProxyApp:
     def __init__(self):
@@ -226,34 +250,14 @@ class ProxyApp:
                 "status": "ok",
             }
         else:
-            # Get the proxy with highest success_rate and lowest latency,
-            # and not in using list
-            good_rows = self.db.df_good.sort_values(
-                by=["success_rate", "latency"], ascending=[False, True]
-            )
-            if good_rows.empty:
-                logger.warn(f"> No usable good proxy")
-                res = {
-                    "server": "",
-                    "latency": -1,
-                    "success_rate": -1,
-                    "status": "error",
-                }
-            else:
-                res = {
-                    "server": good_rows.index[0],
-                    "latency": good_rows.iloc[0]["latency"],
-                    "success_rate": good_rows.iloc[0]["success_rate"],
-                    "status": "ok",
-                }
-                self.db.add_using_proxy(
-                    res["server"], res["latency"], res["success_rate"]
-                )
-                self.db.remove_good_proxy(res["server"])
+            res = self.db.pop_best_proxy()
 
-        logger.success(
-            f"> Get proxy: [{res['status']}] {res['server']}, {res['latency']:.2f}s, {res['success_rate']*100}%"
-        )
+        if not res["server"]:
+            logger.warn(f"> No usable good proxy")
+        else:
+            logger.success(
+                f"> Get proxy: [{res['status']}] {res['server']}, {res['latency']:.2f}s, {res['success_rate']*100}%"
+            )
 
         # trigger refresh_proxies if requirements met
         need_to_refresh_proxies = False
