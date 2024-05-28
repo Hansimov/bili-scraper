@@ -35,4 +35,4 @@ def create_video_info_table(table_name: str = "videos"):
 
 if __name__ == "__main__":
     create_video_info_table()
-    # python -m setups.create_table
+    # python -m setups.create_videos_table
