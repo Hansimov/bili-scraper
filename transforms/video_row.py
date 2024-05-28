@@ -113,11 +113,21 @@ class VideoInfoConverter:
 
     def __init__(self):
         self.rename_columns()
+        self.update_set_str = None
 
     def rename_columns(self):
         self.COLUMNS = {
             self.COLUMNS_RENAME_MAP.get(k, k): v for k, v in self.COLUMNS.items()
         }
+
+    def create_update_set_str(self, sql_row: dict, primary_key: str = "bvid"):
+        update_on_conflict_str = f" ON CONFLICT ({primary_key}) DO UPDATE SET "
+        update_set_columns = [k for k in sql_row.keys() if k != primary_key]
+        update_set_columns_str = ", ".join(
+            [f"{k} = EXCLUDED.{k}" for k in update_set_columns]
+        )
+        self.update_set_str = f"{update_on_conflict_str}{update_set_columns_str}"
+        return self.update_set_str
 
     def flatten(self, video_info: dict):
         new_video_info = {}
@@ -185,7 +195,12 @@ class VideoInfoConverter:
         return new_sql_values
 
     def to_sql_query_and_values(
-        self, video_info: dict, table_name: str = "videos", is_many: bool = False
+        self,
+        video_info: dict,
+        table_name: str = "videos",
+        is_many: bool = False,
+        update_on_conflict: bool = True,
+        primary_key: str = "bvid",
     ):
         """Basic module usage - Psycopg 2.9.9 documentation:
         - https://www.psycopg.org/docs/usage.html#passing-parameters-to-sql-queries
@@ -194,10 +209,18 @@ class VideoInfoConverter:
         """
         sql_row = self.to_sql_row(video_info)
         values_placeholders = ", ".join(["%s"] * len(sql_row))
+
         if not is_many:
             sql_query = f"INSERT INTO {table_name} VALUES ({values_placeholders})"
         else:
             sql_query = f"INSERT INTO {table_name} VALUES %s"
+
+        if update_on_conflict:
+            if not self.update_set_str:
+                self.create_update_set_str(sql_row, primary_key)
+
+            sql_query = f"{sql_query} {self.update_set_str}"
+
         sql_values = self.serialize_sql_row(sql_row)
         return sql_query, sql_values
 
