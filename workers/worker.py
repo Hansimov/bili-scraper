@@ -229,7 +229,11 @@ class Worker:
         for archive in archives:
             sql_row = self.converter.to_sql_row(archive)
             sql_query, sql_values = self.converter.to_sql_query_and_values(
-                sql_row, table_name="videos", is_many=True
+                sql_row,
+                table_name="videos",
+                is_many=True,
+                update_on_conflict=True,
+                primary_key="bvid",
             )
             sql_values_list.append(sql_values)
         if sql_values_list:
@@ -264,7 +268,7 @@ class Worker:
             if self.generator.is_terminated():
                 self.deactivate()
                 logger.file("=" * 20 + " [Generator Terminated] " + "=" * 20)
-                break
+                continue
 
             tid, pn = self.generator.next()
 
