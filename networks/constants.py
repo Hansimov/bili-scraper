@@ -674,6 +674,7 @@ REGION_CODES = {
     },
     "movie": {
         "name": "电影",
+        "tid": 23,
         "children": {
             "tid": {
                 "name": "华语电影",
@@ -711,4 +712,16 @@ REGION_CODES = {
             },
         },
     },
+}
+
+REGION_GROUPS = {
+    "animes": ["douga", "anime", "guochuang"],
+    "arts": ["music", "dance"],
+    "learns": ["knowledge", "tech", "documentary"],
+    "mans": ["game", "sports", "car"],
+    "lifes": ["life", "food", "animal"],
+    "clips": ["kichiku", "cinephile"],
+    "fashions": ["fashion", "ent"],
+    "infos": ["information", "ad"],
+    "tvs": ["movie", "tv"],
 }

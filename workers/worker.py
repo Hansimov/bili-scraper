@@ -34,6 +34,7 @@ class WorkerParamsGenerator:
             region
             for main_region in main_regions
             for region in main_region["children"].values()
+            if region.get("status", "") not in ["redirect"]
         ]
         self.tids = [region["tid"] for region in self.regions]
         logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
