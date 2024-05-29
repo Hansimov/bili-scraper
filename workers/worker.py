@@ -60,6 +60,9 @@ class WorkerParamsGenerator:
         else:
             return {}
 
+    def get_region_name(self, tid: int):
+        return self.get_region(tid).get("name", "Unknown")
+
     def get_tid(self):
         if self.tid_idx < len(self.tids):
             return self.tids[self.tid_idx]
@@ -270,24 +273,34 @@ class Worker:
 
             tid, pn = self.generator.next()
 
-            region_name = self.generator.get_region(tid).get("name", "Unknown")
+            region_name = self.generator.get_region_name(tid)
             task_str = f"region={region_name}, tid={tid}, pn={pn}, wid={self.wid: >2}"
             logger.note(f"> GET: {task_str}")
 
-            res_json = self.get_page(tid=tid, pn=pn)
-            archives = res_json.get("data", {}).get("archives", [])
-            res_code = res_json.get("code", -1)
+            ps = 50
+            res_json = self.get_page(tid=tid, pn=pn, ps=ps)
             res_condition = self.response_categorizer.categorize(res_json)
 
             if res_condition == "end_of_region":
                 logger.mesg(f"  ! End: {task_str}")
                 self.generator.flag_current_region_exhausted(exhausted_tid=tid)
             elif res_condition == "normal":
+                archives = res_json.get("data", {}).get("archives", [])
+                page = res_json.get("data", {}).get("page", {})
+                total_count = page.get("count", -1)
+                current_count = pn * ps
+                if total_count > 0:
+                    progress = round(current_count / total_count * 100, 2)
+                else:
+                    progress = 0
                 logger.success(f"  + GOOD: {task_str}", end=" ")
-                logger.mesg(f"<{len(archives)} videos>")
+                logger.mesg(
+                    f"<{len(archives)} videos> [{current_count}/{total_count}] [{progress}%]"
+                )
                 self.insert_rows(archives)
                 logger.success(f"  + Inserted: {len(archives)} rows")
             elif res_condition == "network_error":
+                res_code = res_json.get("code", -1)
                 logger.warn(f"  × BAD: {task_str} [code={res_code}]")
                 logger.warn(f"    {res_json.get('message', '')}")
                 self.drop_proxy()
