@@ -34,6 +34,21 @@ class SQLOperator:
         self.cur = self.conn.cursor()
         logger.success(f"+ Connected to [{self.dbname}] as ({self.user})")
 
+    def log_error(
+        self, query: str, values: Union[Tuple, List[Tuple]] = None, e: Exception = None
+    ):
+        error_info = {
+            "datetime": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+            "query": query,
+            "values": values,
+            "error": repr(e),
+        }
+        logger.err(f"× SQL Error:")
+        logger.warn(f"{error_info}")
+        error_str = pformat(error_info, sort_dicts=False)
+        with open(self.log_file, "a") as f:
+            f.write(f"{error_str}\n\n")
+
     def exec(
         self,
         query: str,
