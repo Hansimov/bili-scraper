@@ -190,6 +190,11 @@ class VideoInfoConverter:
                     new_v = v
             else:
                 new_v = v
+
+            # Fix Error: 'A string literal cannot contain NUL (0x00) characters.'
+            if isinstance(v, str):
+                new_v = new_v.replace("\x00", "")
+
             new_sql_values.append(new_v)
         new_sql_values = tuple(new_sql_values)
         return new_sql_values
