@@ -1,6 +1,10 @@
 import psycopg2
 import psycopg2.extras
+import threading
 
+from datetime import datetime
+from pathlib import Path
+from pprint import pformat
 from tclogger import logger
 from typing import Union, Tuple, List
 
@@ -14,6 +18,8 @@ class SQLOperator:
         self.dbname = SQL_ENVS["dbname"]
         self.user = SQL_ENVS["user"]
         self.password = SQL_ENVS["password"]
+        self.log_file = Path(__file__).parent / SQL_ENVS["log_file"]
+        self.lock = threading.Lock()
         self.connect()
 
     def connect(self):
@@ -35,23 +41,29 @@ class SQLOperator:
         is_fetchall: bool = False,
         is_many: bool = False,
     ):
-        if not is_many:
-            self.cur.execute(query, values)
-        else:
-            # https://www.psycopg.org/docs/extras.html#psycopg2.extras.execute_values
-            psycopg2.extras.execute_values(cur=self.cur, sql=query, argslist=values)
-
-        if is_fetchall:
+        with self.lock:
             try:
-                res = self.cur.fetchall()
+                if not is_many:
+                    self.cur.execute(query, values)
+                else:
+                    # https://www.psycopg.org/docs/extras.html#psycopg2.extras.execute_values
+                    psycopg2.extras.execute_values(
+                        cur=self.cur, sql=query, argslist=values
+                    )
             except Exception as e:
-                res = None
-                if "no results to fetch" not in str(e):
-                    logger.warn(e)
-        else:
-            res = None
+                self.log_error(query, values, e)
 
-        self.conn.commit()
+            if is_fetchall:
+                try:
+                    res = self.cur.fetchall()
+                except Exception as e:
+                    res = None
+                    if "no results to fetch" not in str(e):
+                        logger.warn(e)
+            else:
+                res = None
+
+            self.conn.commit()
         return res
 
     def close(self):

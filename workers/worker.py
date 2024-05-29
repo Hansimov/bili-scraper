@@ -238,10 +238,7 @@ class Worker:
             )
             sql_values_list.append(sql_values)
         if sql_values_list:
-            try:
-                self.sql.exec(sql_query, sql_values_list, is_many=True)
-            except Exception as e:
-                logger.warn(f"  × Insert error: {e}")
+            self.sql.exec(sql_query, sql_values_list, is_many=True)
 
     def activate(self):
         with self.condition:
@@ -288,9 +285,8 @@ class Worker:
             elif res_condition == "normal":
                 logger.success(f"  + GOOD: {task_str}", end=" ")
                 logger.mesg(f"<{len(archives)} videos>")
-                with self.lock:
-                    self.insert_rows(archives)
-                    logger.success(f"  + Inserted: {len(archives)} rows")
+                self.insert_rows(archives)
+                logger.success(f"  + Inserted: {len(archives)} rows")
             elif res_condition == "network_error":
                 logger.warn(f"  × BAD: {task_str} [code={res_code}]")
                 logger.warn(f"    {res_json.get('message', '')}")
