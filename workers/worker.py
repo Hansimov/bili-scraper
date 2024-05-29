@@ -2,10 +2,12 @@ import requests
 import threading
 import time
 
+from datetime import datetime
+from pathlib import Path
 from tclogger import logger, Runtimer
 from typing import Literal
 
-from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS, PROXY_APP_ENVS
+from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS, PROXY_APP_ENVS, WORKER_APP_ENVS
 from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API, REGION_CODES
 from transforms.video_row import VideoInfoConverter
 from networks.sql import SQLOperator
@@ -24,6 +26,7 @@ class WorkerParamsGenerator:
         self.region_codes = region_codes
         self.start_tid = start_tid
         self.start_pn = start_pn
+        self.log_file = Path(__file__).parents[1] / "logs" / WORKER_APP_ENVS["log_file"]
         self.init_tids()
 
     def init_tids(self):
@@ -69,11 +72,24 @@ class WorkerParamsGenerator:
         else:
             return -1
 
+    def log_to_file(
+        self, log_type: Literal["end_of_region", "others"] = "end_of_region"
+    ):
+        time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        if log_type == "end_of_region":
+            region_name = self.get_region_name(self.tid)
+            log_str = f"× [{time_str}] [End of Region]: region={region_name}, tid={self.tid}, pn={self.pn}"
+        else:
+            log_str = f"? [{time_str}]"
+        with open(self.log_file, "a") as f:
+            f.write(f"{log_str}\n\n")
+
     def flag_current_region_exhausted(self, exhausted_tid: int):
         with self.lock:
             if exhausted_tid not in self.exhausted_tids:
                 self.exhausted_tids.append(exhausted_tid)
                 self.is_current_region_exhausted = True
+                self.log_to_file(log_type="end_of_region")
 
     def is_terminated(self):
         with self.lock:

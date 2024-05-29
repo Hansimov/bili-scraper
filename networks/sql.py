@@ -18,7 +18,7 @@ class SQLOperator:
         self.dbname = SQL_ENVS["dbname"]
         self.user = SQL_ENVS["user"]
         self.password = SQL_ENVS["password"]
-        self.log_file = Path(__file__).parent / SQL_ENVS["log_file"]
+        self.log_file = Path(__file__).parents[1] / "logs" / SQL_ENVS["log_file"]
         self.lock = threading.Lock()
         self.connect()
 
