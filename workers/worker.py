@@ -138,6 +138,11 @@ class WorkerParamsGenerator:
 
 
 class ResponseCategorizer:
+    def __init__(self, region_end_retry_count: int = 5):
+        self.region_end_retry_idx = 0
+        self.region_end_retry_count = region_end_retry_count
+        self.lock = threading.Lock()
+
     def categorize(
         self, res_dict: dict
     ) -> Literal["network_error", "end_of_region", "normal"]:
@@ -145,26 +150,15 @@ class ResponseCategorizer:
         if code != 0:
             return "network_error"
 
-        data = res_dict.get("data", None)
-        if data is None:
-            return "network_error"
-
-        archives = data.get("archives", None)
-        if archives is None:
-            return "network_error"
-
-        page = data.get("page", None)
-        if page is None:
-            return "network_error"
-
-        count = page.get("count", None)
-        if count is None:
-            return "network_error"
-
+        archives = res_dict.get("data", {}).get("archives", [])
         if len(archives) == 0:
-            return "end_of_region"
-        else:
-            return "normal"
+            with self.lock:
+                self.region_end_retry_idx += 1
+                if self.region_end_retry_idx >= self.region_end_retry_count:
+                    self.region_end_retry_idx = 0
+                    return "end_of_region"
+
+        return "normal"
 
 
 class Worker:
