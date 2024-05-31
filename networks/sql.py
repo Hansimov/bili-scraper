@@ -20,6 +20,7 @@ class SQLOperator:
         self.password = SQL_ENVS["password"]
         self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["sql"]
         self.lock = threading.Lock()
+        self.commit_batch_idx = 0
         self.connect()
 
     def connect(self):
@@ -55,30 +56,43 @@ class SQLOperator:
         values: Union[Tuple, List[Tuple]] = None,
         is_fetchall: bool = False,
         is_many: bool = False,
+        commit_batch_size: int = 1,
     ):
         with self.lock:
             try:
                 if not is_many:
                     self.cur.execute(query, values)
+                    if is_fetchall:
+                        try:
+                            res = self.cur.fetchall()
+                        except Exception as e:
+                            res = None
+                            if "no results to fetch" not in str(e):
+                                logger.warn(e)
+                    else:
+                        res = None
                 else:
                     # https://www.psycopg.org/docs/extras.html#psycopg2.extras.execute_values
-                    psycopg2.extras.execute_values(
-                        cur=self.cur, sql=query, argslist=values
+                    res = psycopg2.extras.execute_values(
+                        cur=self.cur, sql=query, argslist=values, fetch=is_fetchall
                     )
+                    if is_fetchall:
+                        res = res
+                    else:
+                        res = None
             except Exception as e:
                 self.log_error(query, values, e)
 
-            if is_fetchall:
-                try:
-                    res = self.cur.fetchall()
-                except Exception as e:
-                    res = None
-                    if "no results to fetch" not in str(e):
-                        logger.warn(e)
-            else:
-                res = None
+            try:
+                if commit_batch_size <= 1:
+                    self.conn.commit()
+                else:
+                    self.commit_batch_idx += 1
+                    if self.commit_batch_idx % commit_batch_size == 0:
+                        self.conn.commit()
+            except Exception as e:
+                self.log_error(query, values, e)
 
-            self.conn.commit()
         return res
 
     def close(self):
