@@ -84,9 +84,10 @@ class WorkerParamsGenerator:
         with open(self.log_file, "a") as f:
             f.write(f"{log_str}\n\n")
 
-    def flag_current_region_exhausted(self, exhausted_tid: int):
+    def flag_current_region_exhausted(self, exhausted_tid: int, task_str: str = ""):
         with self.lock:
             if exhausted_tid not in self.exhausted_tids:
+                logger.mesg(f"  ! End: {task_str}")
                 self.exhausted_tids.append(exhausted_tid)
                 self.is_current_region_exhausted = True
                 self.log_to_file(log_type="end_of_region")
@@ -244,6 +245,23 @@ class Worker:
 
         return res_json
 
+    def get_archives_from_response(
+        self, res_json: dict, pn: int, ps: int = 50, task_str: str = ""
+    ):
+        archives = res_json.get("data", {}).get("archives", [])
+        page = res_json.get("data", {}).get("page", {})
+        total_count = page.get("count", -1)
+        current_count = pn * ps
+        if total_count > 0:
+            progress = round(current_count / total_count * 100, 2)
+        else:
+            progress = 0
+        logger.success(f"  + GOOD: {task_str}", end=" ")
+        logger.mesg(
+            f"<{len(archives)} videos> [{current_count}/{total_count}] [{progress}%]"
+        )
+        return archives
+
     def insert_rows(self, archives: list):
         sql_values_list = []
         for archive in archives:
@@ -258,6 +276,20 @@ class Worker:
             sql_values_list.append(sql_values)
         if sql_values_list:
             self.sql.exec(sql_query, sql_values_list, is_many=True)
+            logger.success(f"  + Inserted: {len(archives)} rows")
+
+    def resolve_network_error(
+        self, res_json: dict, tid: int, pn: int, task_str: str = ""
+    ):
+        res_code = res_json.get("code", -1)
+        logger.warn(f"  × BAD: {task_str} [code={res_code}]")
+        logger.warn(f"    {res_json.get('message', '')}")
+        self.drop_proxy()
+        self.get_proxy()
+        self.generator.append_queue(tid, pn)
+
+    def log_to_file(self, res_json: dict, message: str):
+        pass
 
     def activate(self):
         with self.condition:
@@ -298,32 +330,21 @@ class Worker:
             res_condition = self.response_categorizer.categorize(res_json)
 
             if res_condition == "end_of_region":
-                logger.mesg(f"  ! End: {task_str}")
-                self.generator.flag_current_region_exhausted(exhausted_tid=tid)
+                self.generator.flag_current_region_exhausted(
+                    exhausted_tid=tid, task_str=task_str
+                )
             elif res_condition == "normal":
-                archives = res_json.get("data", {}).get("archives", [])
-                page = res_json.get("data", {}).get("page", {})
-                total_count = page.get("count", -1)
-                current_count = pn * ps
-                if total_count > 0:
-                    progress = round(current_count / total_count * 100, 2)
-                else:
-                    progress = 0
-                logger.success(f"  + GOOD: {task_str}", end=" ")
-                logger.mesg(
-                    f"<{len(archives)} videos> [{current_count}/{total_count}] [{progress}%]"
+                archives = self.get_archives_from_response(
+                    res_json=res_json, pn=pn, ps=ps, task_str=task_str
                 )
                 self.insert_rows(archives)
-                logger.success(f"  + Inserted: {len(archives)} rows")
             elif res_condition == "network_error":
-                res_code = res_json.get("code", -1)
-                logger.warn(f"  × BAD: {task_str} [code={res_code}]")
-                logger.warn(f"    {res_json.get('message', '')}")
-                self.drop_proxy()
-                self.get_proxy()
-                self.generator.append_queue(tid, pn)
+                self.resolve_network_error(
+                    res_json=res_json, tid=tid, pn=pn, task_str=task_str
+                )
             else:
-                logger.warn(f"  - Unknown condition: {task_str} [code={res_code}]")
+                res_code = res_json.get("code", -1)
+                logger.warn(f"  ? Unknown condition: {task_str} [code={res_code}]")
 
             self.timer.end_time()
             dt = self.timer.elapsed_time()
