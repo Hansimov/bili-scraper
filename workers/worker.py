@@ -258,6 +258,15 @@ class Worker:
 
         return res_json
 
+    def get_pubdate_str_from_archives(self, archives: list) -> str:
+        pubdate_ts = datetime.now().timestamp()
+        for archive in archives:
+            pubdate_ts = min(archive.get("pubdate", pubdate_ts), pubdate_ts)
+
+        pubdate_datetime = datetime.fromtimestamp(pubdate_ts)
+        pubdate_datetime_str = pubdate_datetime.strftime("%Y-%m-%d %H:%M:%S")
+        return pubdate_datetime_str
+
     def get_archives_from_response(
         self, res_json: dict, pn: int, ps: int = 50, task_str: str = ""
     ):
@@ -269,10 +278,11 @@ class Worker:
             progress = round(current_count / total_count * 100, 2)
         else:
             progress = 0
+        pubdate_str = self.get_pubdate_str_from_archives(archives)
         logger.success(f"  + GOOD: {task_str}", end=" ")
-        logger.mesg(
-            f"<{len(archives)} videos> [{current_count}/{total_count}] [{progress}%]"
-        )
+        logger.mesg(f"<{len(archives)} videos>")
+        logger.file(f"    [{pubdate_str}]", end=" ")
+        logger.mesg(f"[{current_count}/{total_count}] [{progress}%]")
         return archives
 
     def insert_rows(self, archives: list):
