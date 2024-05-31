@@ -8,7 +8,7 @@ from pprint import pformat
 from tclogger import logger
 from typing import Union, Tuple, List
 
-from configs.envs import SQL_ENVS
+from configs.envs import SQL_ENVS, LOG_ENVS
 
 
 class SQLOperator:
@@ -18,7 +18,7 @@ class SQLOperator:
         self.dbname = SQL_ENVS["dbname"]
         self.user = SQL_ENVS["user"]
         self.password = SQL_ENVS["password"]
-        self.log_file = Path(__file__).parents[1] / "logs" / SQL_ENVS["log_file"]
+        self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["sql"]
         self.lock = threading.Lock()
         self.connect()
 

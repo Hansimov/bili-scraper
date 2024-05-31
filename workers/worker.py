@@ -7,7 +7,7 @@ from pathlib import Path
 from tclogger import logger, Runtimer
 from typing import Literal
 
-from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS, PROXY_APP_ENVS, WORKER_APP_ENVS
+from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS, PROXY_APP_ENVS, LOG_ENVS
 from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API, REGION_CODES
 from transforms.video_row import VideoInfoConverter
 from networks.sql import SQLOperator
@@ -26,7 +26,7 @@ class WorkerParamsGenerator:
         self.region_codes = region_codes
         self.start_tid = start_tid
         self.start_pn = start_pn
-        self.log_file = Path(__file__).parents[1] / "logs" / WORKER_APP_ENVS["log_file"]
+        self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["worker"]
         self.init_tids()
 
     def init_tids(self):

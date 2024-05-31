@@ -9,13 +9,17 @@
         "app_name": "Worker App",
         "host": "0.0.0.0",
         "port": 19002,
-        "version": "1.0",
-        "log_file": "worker.log"
+        "version": "1.0"
     },
     "video_page_api_mocker": {
         "app_name": "Video Page API Mocker",
         "host": "0.0.0.0",
         "port": 19101,
         "version": "1.0"
+    },
+    "logs": {
+        "worker": "worker.log",
+        "sql": "sql.log",
+        "vip": "vip.log"
     }
 }
