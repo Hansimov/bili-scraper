@@ -2,7 +2,7 @@ import requests
 import threading
 import time
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from tclogger import logger, Runtimer
 from typing import Literal
@@ -33,6 +33,8 @@ class WorkerParamsGenerator:
         self.end_pn = end_pn
         self.log_mids = log_mids
         self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["worker"]
+        self.inserted_videos_num = 0
+        self.start_time = datetime.now()
         self.init_tids()
 
     def init_tids(self):
@@ -94,6 +96,29 @@ class WorkerParamsGenerator:
             log_str = f"? [{time_str}]"
         with open(self.log_file, "a") as f:
             f.write(f"{log_str}\n\n")
+
+    def add_inserted_videos_num(self, num: int = 50):
+        with self.lock:
+            self.inserted_videos_num += num
+
+    def get_estimated_remaining_time_str(
+        self, current_count: int = -1, total_count: int = -1
+    ):
+        if current_count == -1 or total_count == -1:
+            return None
+        if self.inserted_videos_num == 0:
+            return None
+        remaining_count = total_count - current_count
+        elapsed_seconds = (datetime.now() - self.start_time).total_seconds()
+        estimated_remaining_seconds = int(
+            elapsed_seconds * remaining_count / self.inserted_videos_num
+        )
+
+        hours = estimated_remaining_seconds // 3600
+        minutes = (estimated_remaining_seconds % 3600) // 60
+        seconds = estimated_remaining_seconds % 60
+        estimated_remaining_time_str = f"{hours:02}:{minutes:02}:{seconds:02}"
+        return estimated_remaining_time_str
 
     def flag_current_region_exhausted(self, exhausted_tid: int, task_str: str = ""):
         with self.lock:
@@ -313,9 +338,11 @@ class Worker:
         logger.mesg(f"<{len(archives)} videos>")
         logger.file(f"    [{pubdate_str}]", end=" ")
         logger.mesg(f"[{current_count}/{total_count}] [{progress}%]")
-        return archives
+        return archives, current_count, total_count
 
-    def insert_rows(self, archives: list):
+    def insert_rows(
+        self, archives: list, current_count: int = -1, total_count: int = -1
+    ):
         t1 = datetime.now()
         sql_values_list = []
         for archive in archives:
@@ -333,8 +360,15 @@ class Worker:
             t2 = datetime.now()
             dt = t2 - t1
             dt_str = f"{dt.seconds}.{dt.microseconds // 1000:03d} s"
+            self.generator.add_inserted_videos_num(len(archives))
+            estimated_remaining_seconds_str = (
+                self.generator.get_estimated_remaining_time_str(
+                    current_count=current_count, total_count=total_count
+                )
+            )
             logger.success(f"  + Inserted: {len(archives)} rows", end=" ")
-            logger.file(f"({dt_str})")
+            logger.file(f"({dt_str})", end=" ")
+            logger.mesg(f"[ETA={estimated_remaining_seconds_str}]")
 
     def resolve_network_error(
         self, res_json: dict, tid: int, pn: int, task_str: str = ""
@@ -389,10 +423,12 @@ class Worker:
                     exhausted_tid=tid, task_str=task_str
                 )
             elif res_condition == "normal":
-                archives = self.get_archives_from_response(
+                archives, current_count, total_count = self.get_archives_from_response(
                     res_json=res_json, pn=pn, ps=ps, task_str=task_str
                 )
-                self.insert_rows(archives)
+                self.insert_rows(
+                    archives, current_count=current_count, total_count=total_count
+                )
             elif res_condition == "network_error":
                 self.resolve_network_error(
                     res_json=res_json, tid=tid, pn=pn, task_str=task_str
