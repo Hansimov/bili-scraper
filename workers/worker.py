@@ -141,10 +141,26 @@ class ResponseCategorizer:
     def categorize(
         self, res_dict: dict
     ) -> Literal["network_error", "end_of_region", "normal"]:
-        code = res_dict.get("code")
+        code = res_dict.get("code", -1)
         if code != 0:
             return "network_error"
-        archives = res_dict.get("data", {}).get("archives", [])
+
+        data = res_dict.get("data", None)
+        if data is None:
+            return "network_error"
+
+        archives = data.get("archives", None)
+        if archives is None:
+            return "network_error"
+
+        page = data.get("page", None)
+        if page is None:
+            return "network_error"
+
+        count = page.get("count", None)
+        if count is None:
+            return "network_error"
+
         if len(archives) == 0:
             return "end_of_region"
         else:
