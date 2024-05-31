@@ -263,6 +263,7 @@ class Worker:
         return archives
 
     def insert_rows(self, archives: list):
+        t1 = datetime.now()
         sql_values_list = []
         for archive in archives:
             sql_row = self.converter.to_sql_row(archive)
@@ -274,9 +275,14 @@ class Worker:
                 primary_key="bvid",
             )
             sql_values_list.append(sql_values)
+        t2 = datetime.now()
         if sql_values_list:
             self.sql.exec(sql_query, sql_values_list, is_many=True)
-            logger.success(f"  + Inserted: {len(archives)} rows")
+            t2 = datetime.now()
+            dt = t2 - t1
+            dt_str = f"{dt.seconds}.{dt.microseconds // 1000:03d} s"
+            logger.success(f"  + Inserted: {len(archives)} rows", end=" ")
+            logger.file(f"({dt_str})")
 
     def resolve_network_error(
         self, res_json: dict, tid: int, pn: int, task_str: str = ""
