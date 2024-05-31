@@ -63,6 +63,8 @@ class WorkerApp:
         max_workers: Optional[int] = Body(40),
         start_tid: Optional[int] = Body(-1),
         start_pn: Optional[int] = Body(-1),
+        end_tid: Optional[int] = Body(-1),
+        end_pn: Optional[int] = Body(-1),
         mock: Optional[bool] = Body(False),
     ):
         if not self.generator:
@@ -70,6 +72,8 @@ class WorkerApp:
                 region_codes=region_codes,
                 start_tid=start_tid,
                 start_pn=start_pn,
+                end_tid=end_tid,
+                end_pn=end_pn,
                 mock=mock,
             )
         if not self.sql:

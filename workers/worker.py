@@ -19,6 +19,8 @@ class WorkerParamsGenerator:
         region_codes: list[str] = [],
         start_tid: int = -1,
         start_pn: int = -1,
+        end_tid: int = -1,
+        end_pn: int = -1,
         mock: bool = False,
     ):
         self.mock = mock
@@ -26,6 +28,8 @@ class WorkerParamsGenerator:
         self.region_codes = region_codes
         self.start_tid = start_tid
         self.start_pn = start_pn
+        self.end_tid = end_tid
+        self.end_pn = end_pn
         self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["worker"]
         self.init_tids()
 
@@ -51,6 +55,11 @@ class WorkerParamsGenerator:
         else:
             self.pn = 0
         self.tid = self.get_tid()
+
+        if self.end_tid in self.tids:
+            self.end_tid_idx = self.tids.index(self.end_tid)
+        else:
+            self.end_tid_idx = len(self.tids)
 
         self.queue.append((self.tid, self.pn))
         self.is_current_region_exhausted = False
@@ -94,7 +103,11 @@ class WorkerParamsGenerator:
 
     def is_terminated(self):
         with self.lock:
+            if self.queue:
+                return False
             if self.tid == -1 and self.pn == -1:
+                return True
+            if self.tid_idx >= self.end_tid_idx and self.pn >= self.end_pn:
                 return True
             return False
 
@@ -275,7 +288,6 @@ class Worker:
                 primary_key="bvid",
             )
             sql_values_list.append(sql_values)
-        t2 = datetime.now()
         if sql_values_list:
             self.sql.exec(sql_query, sql_values_list, is_many=True)
             t2 = datetime.now()
@@ -322,7 +334,7 @@ class Worker:
 
             if self.generator.is_terminated():
                 self.deactivate()
-                logger.file("=" * 20 + " [Generator Terminated] " + "=" * 20)
+                logger.file("=" * 20 + f" [Terminated] ({self.wid: >2}) " + "=" * 20)
                 continue
 
             tid, pn = self.generator.next()
