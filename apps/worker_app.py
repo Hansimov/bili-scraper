@@ -65,6 +65,7 @@ class WorkerApp:
         start_pn: Optional[int] = Body(-1),
         end_tid: Optional[int] = Body(-1),
         end_pn: Optional[int] = Body(-1),
+        log_mids: Optional[list[int]] = Body([]),
         mock: Optional[bool] = Body(False),
     ):
         if not self.generator:
@@ -74,6 +75,7 @@ class WorkerApp:
                 start_pn=start_pn,
                 end_tid=end_tid,
                 end_pn=end_pn,
+                log_mids=log_mids,
                 mock=mock,
             )
         if not self.sql:

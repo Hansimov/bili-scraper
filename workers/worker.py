@@ -21,6 +21,7 @@ class WorkerParamsGenerator:
         start_pn: int = -1,
         end_tid: int = -1,
         end_pn: int = -1,
+        log_mids: list[int] = [],
         mock: bool = False,
     ):
         self.mock = mock
@@ -30,6 +31,7 @@ class WorkerParamsGenerator:
         self.start_pn = start_pn
         self.end_tid = end_tid
         self.end_pn = end_pn
+        self.log_mids = log_mids
         self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["worker"]
         self.init_tids()
 
@@ -175,6 +177,7 @@ class Worker:
         self.response_categorizer = ResponseCategorizer()
         self.converter = VideoInfoConverter()
         self.sql = sql
+        self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["worker"]
         self.proxy_endpoint = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}"
         self.get_proxy_api = f"{self.proxy_endpoint}/get_proxy"
         self.drop_proxy_api = f"{self.proxy_endpoint}/drop_proxy"
@@ -258,10 +261,27 @@ class Worker:
 
         return res_json
 
+    def log_to_file(self, log_str: str):
+        with open(self.log_file, "a") as f:
+            f.write(f"{log_str}\n\n")
+
     def get_pubdate_str_from_archives(self, archives: list) -> str:
-        pubdate_ts = datetime.now().timestamp()
+        now = datetime.now()
+        now_str = now.strftime("%Y-%m-%d %H:%M:%S")
+        pubdate_ts = now.timestamp()
         for archive in archives:
             pubdate_ts = min(archive.get("pubdate", pubdate_ts), pubdate_ts)
+            if self.generator.log_mids:
+                owner = archive.get("owner", {})
+                mid = owner.get("mid", 0)
+                if mid in self.generator.log_mids:
+                    title = archive.get("title", "")
+                    name = owner.get("name", "")
+                    pubdate_str = datetime.fromtimestamp(pubdate_ts).strftime(
+                        "%Y-%m-%d %H:%M:%S"
+                    )
+                    log_str = f"+ [{now_str}] [{pubdate_str}] [{name}] [{title}]"
+                    self.log_to_file(log_str)
 
         pubdate_datetime = datetime.fromtimestamp(pubdate_ts)
         pubdate_datetime_str = pubdate_datetime.strftime("%Y-%m-%d %H:%M:%S")
@@ -315,9 +335,6 @@ class Worker:
         self.drop_proxy()
         self.get_proxy()
         self.generator.append_queue(tid, pn)
-
-    def log_to_file(self, res_json: dict, message: str):
-        pass
 
     def activate(self):
         with self.condition:
