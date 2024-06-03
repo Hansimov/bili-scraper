@@ -14,3 +14,5 @@ LOG_ENVS = ENVS_ENVER["logs"]
 secrets_path = configs_root / "secrets.json"
 SECRETS = OSEnver(secrets_path)
 SQL_ENVS = SECRETS["sql"]
+
+COOKIES = "; ".join(f"{key}={val}" for key, val in SECRETS["cookies"].items())
