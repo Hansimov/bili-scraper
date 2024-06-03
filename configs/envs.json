@@ -20,6 +20,6 @@
     "logs": {
         "worker": "worker.log",
         "sql": "sql.log",
-        "vip": "vip.log"
+        "user": "user.log"
     }
 }
