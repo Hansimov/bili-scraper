@@ -7,6 +7,7 @@ from datetime import datetime
 from fastapi import FastAPI, Body
 from pydantic import BaseModel
 from tclogger import logger
+from termcolor import colored
 from typing import Optional, List, Literal
 
 from apps.arg_parser import ArgParser
@@ -266,6 +267,15 @@ class ProxyApp:
         else:
             logger.success(
                 f"> Get proxy: [{res['status']}] {res['server']}, {res['latency']:.2f}s, {res['success_rate']*100}%"
+            )
+            using_count = len(self.db.df_using.index.tolist())
+            remain_count = len(self.db.df_good.index.tolist())
+            using_str = colored("Using", "yellow")
+            remain_str = colored("Remain", "blue")
+            using_count_str = colored(using_count, "yellow")
+            remain_count_str = colored(remain_count, "blue")
+            logger.file(
+                f"* {using_str}/{remain_str}: {using_count_str}/{remain_count_str}"
             )
 
         # trigger refresh_proxies if requirements met
