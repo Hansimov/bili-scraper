@@ -1,9 +1,13 @@
 import json
 import requests
+import shutil
+import time
 
+from math import ceil
 from pathlib import Path
 from tclogger import logger
 from termcolor import colored
+from tqdm import tqdm
 
 from configs.envs import LOG_ENVS, COOKIES
 from networks.wbi import ParamsWBISigner
@@ -15,9 +19,6 @@ class UserWorker:
         self.mid = mid
         self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["user"]
         self.save_root = Path(__file__).parents[1] / "data" / "user" / f"{self.mid}"
-
-    def is_terminated(self):
-        pass
 
     def get_json_filename(self, pn: int = 1, ps: int = 30):
         return f"videos_pn_{pn}_ps_{ps}.json"
@@ -31,7 +32,16 @@ class UserWorker:
         logger.success(f"+ Videos info saved:")
         logger.file(f"  * {save_path}")
 
-    def get_videos_info(self, pn: int = 1, ps: int = 3, overwrite: bool = True):
+    def get_videos_info(
+        self,
+        pn: int = 1,
+        ps: int = 5,
+        save_json: bool = True,
+        overwrite: bool = True,
+        verbose: bool = False,
+    ):
+        logger.enter_quiet(not verbose)
+
         signer = ParamsWBISigner()
         headers = signer.headers
         headers["Cookie"] = COOKIES
@@ -47,24 +57,59 @@ class UserWorker:
         signed_params = signer.run(params)
 
         logger.note(f"> Get videos info: {video_params_str}")
+
+        res_dict = None
         try:
             res = requests.get(self.url, headers=headers, params=signed_params)
             res_dict = res.json()
-            logger.note(f"> Save videos info to json: {video_params_str}")
-            json_filename = self.get_json_filename(pn, ps)
-            self.save_to_json(
-                res=res_dict, json_filename=json_filename, overwrite=overwrite
-            )
+            if save_json:
+                logger.note(f"> Save videos info to json: {video_params_str}")
+                json_filename = self.get_json_filename(pn, ps)
+                self.save_to_json(
+                    res=res_dict, json_filename=json_filename, overwrite=overwrite
+                )
         except Exception as e:
             logger.warn(f"× Error: {e}")
 
-    def run(self, pn: int = 1, ps: int = 3):
-        self.get_videos_info(pn=pn, ps=ps)
+        logger.exit_quiet(not verbose)
+
+        return res_dict
+
+    def get_all_videos_info(
+        self, start_pn: int = 1, ps: int = 5, remove_old: bool = False
+    ):
+        logger.note(f"> Fetching all videos info for mid={self.mid}")
+
+        if remove_old and self.save_root.exists():
+            shutil.rmtree(self.save_root)
+
+        # get total videos count and page num
+        try:
+            res_dict = self.get_videos_info(pn=1, ps=ps)
+            data = res_dict.get("data", {})
+            videos_total_count = data.get("page", {}).get("count", 0)
+            vlist = data.get("list", {}).get("vlist", [])
+            page_num = ceil(videos_total_count / ps)
+            author = vlist[0].get("author", "Unknown")
+            time.sleep(0.5)
+        except Exception as e:
+            logger.warn(f"x Error: {e}")
+
+        # get all pages of current user
+        logger.file(f"  - {page_num} pages, {videos_total_count} videos by {author}")
+        for pn in tqdm(range(start_pn, page_num + 1)):
+            res_dict = self.get_videos_info(pn=pn, ps=ps)
+            vlist = data.get("list", {}).get("vlist", [])
+            time.sleep(0.5)
+
+    def run(self, pn: int = 1, ps: int = 5):
+        self.get_all_videos_info(ps=50, remove_old=True)
 
 
 if __name__ == "__main__":
-    worker = UserWorker(mid=946974)
-    pn, ps = 1, 3
-    worker.run(pn, ps)
+    # mid = 946974 # 影视飓风
+    mid = 1629347259  # 红警HBK08
+    worker = UserWorker(mid=mid)
+    worker.run()
 
     # python -m workers.user_worker

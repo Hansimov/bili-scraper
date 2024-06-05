@@ -6,4 +6,5 @@ psycopg2-binary
 pydantic
 Requests
 tclogger
+tqdm
 uvicorn
