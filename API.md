@@ -1,11 +1,17 @@
-# API format
+# API
 
-
-## APIs
+## API Docs
 
 视频分区一览：
 - https://socialsisteryi.github.io/bilibili-API-collect/docs/video/video_zone.html
 
+WBI 签名：
+
+- https://socialsisteryi.github.io/bilibili-API-collect/docs/misc/sign/wbi.html
+
+查询用户投稿视频明细：
+
+- https://socialsisteryi.github.io/bilibili-API-collect/docs/user/space.html#%E6%9F%A5%E8%AF%A2%E7%94%A8%E6%88%B7%E6%8A%95%E7%A8%BF%E8%A7%86%E9%A2%91%E6%98%8E%E7%BB%86
 
 获取视频详细信息(web端)：
 
@@ -15,13 +21,10 @@
 
 - https://socialsisteryi.github.io/bilibili-API-collect/docs/video/info.html#%E8%8E%B7%E5%8F%96%E8%A7%86%E9%A2%91%E8%B6%85%E8%AF%A6%E7%BB%86%E4%BF%A1%E6%81%AF-web%E7%AB%AF
 
-查询用户投稿视频明细：
-
-- https://socialsisteryi.github.io/bilibili-API-collect/docs/user/space.html#%E6%9F%A5%E8%AF%A2%E7%94%A8%E6%88%B7%E6%8A%95%E7%A8%BF%E8%A7%86%E9%A2%91%E6%98%8E%E7%BB%86
 
 ## `x/web-interface/newlist`
 
-API example:
+API schema:
 
 - http://api.bilibili.com/x/web-interface/newlist
 - params: `rid`, `pn`, `ps`
@@ -102,7 +105,7 @@ API example:
 
 ## `x/space/wbi/arc/search`
 
-API example:
+API schema:
 
 - https://api.bilibili.com/x/space/wbi/arc/search
 - params: `mid`, `pn`, `ps`, `wts`, `w_rid`
