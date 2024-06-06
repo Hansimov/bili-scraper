@@ -19,11 +19,12 @@
 
 - https://socialsisteryi.github.io/bilibili-API-collect/docs/user/space.html#%E6%9F%A5%E8%AF%A2%E7%94%A8%E6%88%B7%E6%8A%95%E7%A8%BF%E8%A7%86%E9%A2%91%E6%98%8E%E7%BB%86
 
-## newlist API Response
+## `x/web-interface/newlist`
 
 API example:
 
-- http://api.bilibili.com/x/web-interface/newlist?rid=95&pn=1&ps=50
+- http://api.bilibili.com/x/web-interface/newlist
+- params: `rid`, `pn`, `ps`
 
 ```json
 {
@@ -99,7 +100,12 @@ API example:
 }
 ```
 
-## arc/search API Response
+## `x/space/wbi/arc/search`
+
+API example:
+
+- https://api.bilibili.com/x/space/wbi/arc/search
+- params: `mid`, `pn`, `ps`, `wts`, `w_rid`
 
 ```json
 {
@@ -118,6 +124,7 @@ API example:
                 ...
             },
             "vlist": [
+                // video without "meta"
                 {
                     "comment": 916,
                     "typeid": 95,
@@ -148,6 +155,69 @@ API example:
                     "is_avoided": 0,
                     "season_id": 0,
                     "attribute": 16768,
+                    "is_charging_arc": false,
+                    "vt": 0,
+                    "enable_vt": 0,
+                    "vt_display": "",
+                    "playback_position": 0
+                },
+                ...
+                // video with "meta"
+                {
+                    "comment": 1730,
+                    "typeid": 21,
+                    "play": 1972241,
+                    "pic": "http://i2.hdslb.com/bfs/archive/21e2d168324d0e248b989244d438555a6420f89c.jpg",
+                    "subtitle": "",
+                    "description": "之前新场地介绍的节目中提过我们还有很多可以改进的地方，其中有些问题令我们很头大，恰好迷瞪搬来了我们隔壁，于是就有了这期改造视频～如果你喜欢这期视频，请多多支持我们，并将视频分享给其他有需要的朋友！",
+                    "copyright": "1",
+                    "title": "【UP主改我计划】影视飓风摸鱼新地点？",
+                    "review": 0,
+                    "author": "影视飓风",
+                    "mid": 946974,
+                    "created": 1706703000,
+                    "length": "16:14",
+                    "video_review": 8468,
+                    "aid": 1800205549,
+                    "bvid": "BV1at421H7dK",
+                    "hide_click": false,
+                    "is_pay": 0,
+                    "is_union_video": 1,
+                    "is_steins_gate": 0,
+                    "is_live_playback": 0,
+                    "is_lesson_video": 0,
+                    "is_lesson_finished": 0,
+                    "lesson_update_info": "",
+                    "jump_url": "",
+                    "meta": {
+                        "id": 2159611,
+                        "title": "UP主改我计划",
+                        "cover": "https://archive.biliimg.com/bfs/archive/21e2d168324d0e248b989244d438555a6420f89c.jpg",
+                        "mid": 946974,
+                        "intro": "",
+                        "sign_state": 0,
+                        "attribute": 140,
+                        "stat": {
+                            "season_id": 2159611,
+                            "view": 5848977,
+                            "danmaku": 17297,
+                            "reply": 4566,
+                            "favorite": 61389,
+                            "coin": 132094,
+                            "share": 24511,
+                            "like": 377199,
+                            "mtime": 1717614337,
+                            "vt": 0,
+                            "vv": 0
+                        },
+                        "ep_count": 2,
+                        "first_aid": 1800205549,
+                        "ptime": 1710331425,
+                        "ep_num": 2
+                    },
+                    "is_avoided": 0,
+                    "season_id": 2159611,
+                    "attribute": 16793984,
                     "is_charging_arc": false,
                     "vt": 0,
                     "enable_vt": 0,
