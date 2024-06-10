@@ -725,3 +725,36 @@ REGION_GROUPS = {
     "infos": ["information", "ad"],
     "tvs": ["movie", "tv"],
 }
+
+
+def get_all_region_info() -> dict:
+    region_infos = {}
+    for parent_code, parent_dict in REGION_CODES.items():
+        parent_tid = parent_dict["tid"]
+        parent_name = parent_dict["name"]
+        regions = parent_dict["children"]
+        for region_code, region_dict in regions.items():
+            region_tid = region_dict["tid"]
+            region_name = region_dict["name"]
+
+            region_info = {
+                "region_tid": region_tid,
+                "region_code": region_code,
+                "region_name": region_name,
+                "parent_tid": parent_tid,
+                "parent_code": parent_code,
+                "parent_name": parent_name,
+                "group_code": "",
+            }
+            for group_code, group_list in REGION_GROUPS.items():
+                if parent_code in group_list:
+                    region_info["group_code"] = group_code
+                else:
+                    continue
+
+            region_infos[region_tid] = region_info
+
+    return region_infos
+
+
+REGION_INFOS = get_all_region_info()
