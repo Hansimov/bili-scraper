@@ -736,11 +736,16 @@ def get_all_region_info() -> dict:
         for region_code, region_dict in regions.items():
             region_tid = region_dict["tid"]
             region_name = region_dict["name"]
+            region_status = region_dict.get("status", "")
+
+            if region_status == "redirect":
+                continue
 
             region_info = {
                 "region_tid": region_tid,
                 "region_code": region_code,
                 "region_name": region_name,
+                "region_status": region_status,
                 "parent_tid": parent_tid,
                 "parent_code": parent_code,
                 "parent_name": parent_name,
