@@ -1,6 +1,9 @@
+import json
 import requests
 import time
 
+from math import ceil
+from pathlib import Path
 from tclogger import logger, Runtimer
 from typing import Literal
 
@@ -29,6 +32,9 @@ class Scanner:
         self.timeout = 2.5
         self.interval = 2
         self.tid_queue = []
+        self.save_json_path = (
+            Path(__file__).parents[1] / "data" / "region" / "regions_count.json"
+        )
 
     def get_proxy(self):
         # LINK apps/proxy_app.py#get_proxy
@@ -116,12 +122,31 @@ class Scanner:
         self.get_proxy()
         self.tid_queue.insert(0, tid)
 
-    def get_count_from_response(self, res_json: dict, task_str: str = ""):
+    def get_videos_count_from_response(self, res_json: dict, task_str: str = "") -> int:
         page = res_json.get("data", {}).get("page", {})
-        total_count = page.get("count", -1)
+        videos_count = page.get("count", -1)
         logger.success(f"  √ OK: {task_str}")
-        logger.mesg(f"  - videos count: {total_count}")
-        return total_count
+        logger.mesg(f"  - videos count: {videos_count}")
+        return videos_count
+
+    def update_json_info(self, tid: int, videos_count: int = 0):
+        if not self.save_json_path.exists():
+            self.save_json_path.parent.mkdir(parents=True, exist_ok=True)
+            json_dict = REGION_CODES
+        else:
+            with open(self.save_json_path, "r", encoding="utf-8") as rf:
+                json_dict = json.load(rf)
+
+        region_info = REGION_INFOS[tid]
+        parent_code = region_info["parent_code"]
+        region_code = region_info["region_code"]
+
+        json_dict[parent_code]["children"][region_code]["videos_count"] = videos_count
+        page_count = ceil(videos_count / 50)
+        json_dict[parent_code]["children"][region_code]["page_count"] = page_count
+
+        with open(self.save_json_path, "w", encoding="utf-8") as wf:
+            json.dump(json_dict, wf, ensure_ascii=False, indent=4)
 
     def scan(
         self,
@@ -163,7 +188,10 @@ class Scanner:
             res_condition = self.categorize_response(res_json)
 
             if res_condition == "normal":
-                self.get_count_from_response(res_json=res_json, task_str=task_str)
+                videos_count = self.get_videos_count_from_response(
+                    res_json=res_json, task_str=task_str
+                )
+                self.update_json_info(tid=tid, videos_count=videos_count)
                 scanned_count += 1
             elif res_condition == "network_error":
                 self.resolve_network_error(
