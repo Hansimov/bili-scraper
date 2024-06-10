@@ -7,7 +7,7 @@ from pathlib import Path
 from tclogger import logger, Runtimer
 from typing import Literal
 
-from configs.envs import VIDEO_PAGE_API_MOCKER_ENVS, PROXY_APP_ENVS, LOG_ENVS
+from configs.envs import PROXY_APP_ENVS, LOG_ENVS
 from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API, REGION_CODES
 from transforms.video_row import VideoInfoConverter
 from networks.sql import SQLOperator
@@ -22,9 +22,7 @@ class WorkerParamsGenerator:
         end_tid: int = -1,
         end_pn: int = -1,
         log_mids: list[int] = [],
-        mock: bool = False,
     ):
-        self.mock = mock
         self.lock = threading.Lock()
         self.region_codes = region_codes
         self.start_tid = start_tid
@@ -194,7 +192,6 @@ class Worker:
         lock: threading.Lock,
         wid: int = -1,
         proxy: str = None,
-        mock: bool = False,
         interval: float = 2.5,
         retry_count: int = 15,
         time_out: float = 2.5,
@@ -203,7 +200,6 @@ class Worker:
         self.generator = generator
         self.lock = lock
         self.proxy = proxy
-        self.mock = mock
         self.active = False
         self.condition = threading.Condition()
         self.interval = interval
@@ -219,9 +215,8 @@ class Worker:
 
     def get_proxy(self):
         # LINK apps/proxy_app.py#get_proxy
-        params = {"mock": self.mock}
         try:
-            res = requests.get(self.get_proxy_api, params=params)
+            res = requests.get(self.get_proxy_api)
             if res.status_code == 200:
                 proxy = res.json().get("server")
             else:
@@ -250,18 +245,13 @@ class Worker:
 
     def get_page(self, tid: int, pn: int, ps: int = 50):
         proxy = self.proxy
-        mock = self.mock
 
         if proxy:
             proxies = {"http": f"http://{proxy}", "https": f"http://{proxy}"}
         else:
             proxies = None
 
-        if mock:
-            url = f"http://127.0.0.1:{VIDEO_PAGE_API_MOCKER_ENVS['port']}/page_info"
-            proxies = None
-        else:
-            url = GET_VIDEO_PAGE_API
+        url = GET_VIDEO_PAGE_API
 
         params = {"rid": tid, "pn": pn, "ps": ps}
 

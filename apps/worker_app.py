@@ -46,14 +46,12 @@ class WorkerApp:
         logger.mesg(f"√ Reset using proxies: {data.get('status')}")
         return data
 
-    def create_workers(
-        self, max_workers: Optional[int] = Body(40), mock: Optional[bool] = Body(True)
-    ):
+    def create_workers(self, max_workers: Optional[int] = Body(40)):
         self.reset_using_proxies()
         self.workers: List[Worker] = []
         for i in range(max_workers):
             worker = Worker(
-                wid=i, generator=self.generator, sql=self.sql, lock=self.lock, mock=mock
+                wid=i, generator=self.generator, sql=self.sql, lock=self.lock
             )
             self.workers.append(worker)
 
@@ -66,7 +64,6 @@ class WorkerApp:
         end_tid: Optional[int] = Body(-1),
         end_pn: Optional[int] = Body(-1),
         log_mids: Optional[list[int]] = Body([]),
-        mock: Optional[bool] = Body(False),
     ):
         if not self.generator:
             self.generator = WorkerParamsGenerator(
@@ -76,12 +73,11 @@ class WorkerApp:
                 end_tid=end_tid,
                 end_pn=end_pn,
                 log_mids=log_mids,
-                mock=mock,
             )
         if not self.sql:
             self.sql = SQLOperator()
         self.max_workers = max_workers
-        self.create_workers(max_workers=max_workers, mock=mock)
+        self.create_workers(max_workers=max_workers)
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=max_workers) as executor:
             futures = [executor.submit(worker.run) for worker in self.workers]

@@ -251,16 +251,8 @@ class ProxyApp:
         return res
 
     # ANCHOR[id=get_proxy]
-    def get_proxy(self, mock: Optional[bool] = False):
-        if mock:
-            res = {
-                "server": "mock",
-                "latency": 0.0,
-                "success_rate": 1.0,
-                "status": "ok",
-            }
-        else:
-            res = self.db.pop_best_proxy()
+    def get_proxy(self):
+        res = self.db.pop_best_proxy()
 
         if not res["server"]:
             logger.warn(f"> No usable good proxy")
