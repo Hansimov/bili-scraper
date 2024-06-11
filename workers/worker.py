@@ -168,17 +168,22 @@ class ResponseCategorizer:
     def __init__(self, region_end_retry_count: int = 5):
         self.region_end_retry_idx = 0
         self.region_end_retry_count = region_end_retry_count
+        self.current_region_videos_count = 0
         self.lock = threading.Lock()
 
+    def update_videos_count(self, count: int):
+        with self.lock:
+            self.current_region_videos_count = count
+
     def categorize(
-        self, res_dict: dict
+        self, res_dict: dict, pn: int, ps: int = 50
     ) -> Literal["network_error", "end_of_region", "normal"]:
         code = res_dict.get("code", -1)
         if code != 0:
             return "network_error"
 
         archives = res_dict.get("data", {}).get("archives", [])
-        if len(archives) == 0:
+        if len(archives) == 0 and pn * ps > self.current_region_videos_count:
             with self.lock:
                 self.region_end_retry_idx += 1
                 if self.region_end_retry_idx >= self.region_end_retry_count:
@@ -198,7 +203,7 @@ class Worker:
         proxy: str = None,
         interval: float = 2.5,
         retry_count: int = 15,
-        time_out: float = 2.5,
+        timeout: float = 2.5,
     ):
         self.wid = wid
         self.generator = generator
@@ -208,7 +213,7 @@ class Worker:
         self.condition = threading.Condition()
         self.interval = interval
         self.retry_count = retry_count
-        self.time_out = time_out
+        self.timeout = timeout
         self.response_categorizer = ResponseCategorizer()
         self.converter = VideoInfoConverter()
         self.sql = sql
@@ -247,6 +252,7 @@ class Worker:
         except Exception as e:
             pass
 
+    # ANCHOR[id=get_page]
     def get_page(self, tid: int, pn: int, ps: int = 50):
         proxy = self.proxy
 
@@ -268,7 +274,7 @@ class Worker:
                     headers=REQUESTS_HEADERS,
                     params=params,
                     proxies=proxies,
-                    timeout=self.time_out,
+                    timeout=self.timeout,
                 )
                 if res.status_code == 200:
                     res_json = res.json()
@@ -322,6 +328,7 @@ class Worker:
         archives = res_json.get("data", {}).get("archives", [])
         page = res_json.get("data", {}).get("page", {})
         total_count = page.get("count", -1)
+        self.response_categorizer.update_videos_count(total_count)
         current_count = pn * ps
         if total_count > 0:
             progress = round(current_count / total_count * 100, 2)
@@ -410,7 +417,7 @@ class Worker:
 
             ps = 50
             res_json = self.get_page(tid=tid, pn=pn, ps=ps)
-            res_condition = self.response_categorizer.categorize(res_json)
+            res_condition = self.response_categorizer.categorize(res_json, pn=pn, ps=ps)
 
             if res_condition == "end_of_region":
                 self.generator.flag_current_region_exhausted(
