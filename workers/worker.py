@@ -79,16 +79,6 @@ class WorkerParamsGenerator:
         self.is_current_region_exhausted = False
         logger.note(f"> Start: tid={self.tid}, pn={self.pn}")
 
-    def get_region(self, tid: int):
-        if tid in self.tids:
-            idx = self.tids.index(tid)
-            return self.regions[idx]
-        else:
-            return {}
-
-    def get_region_name(self, tid: int):
-        return self.get_region(tid).get("name", "Unknown")
-
     def get_tid(self):
         if self.tid_idx < len(self.tids):
             return self.tids[self.tid_idx]
@@ -96,14 +86,16 @@ class WorkerParamsGenerator:
             return -1
 
     def log_to_file(
-        self, log_type: Literal["end_of_region", "others"] = "end_of_region"
+        self,
+        log_type: Literal["end_of_region", "others"] = "end_of_region",
+        log_str: str = "",
     ):
         time_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         if log_type == "end_of_region":
-            region_name = self.get_region_name(self.tid)
+            region_name = REGION_INFOS.get(self.tid, {}).get("region_name", "Unknown")
             log_str = f"× [{time_str}] [End of Region]: region={region_name}, tid={self.tid}, pn={self.pn}"
         else:
-            log_str = f"? [{time_str}]"
+            log_str = f"? [{time_str}] {log_str}"
         with open(self.log_file, "a") as f:
             f.write(f"{log_str}\n\n")
 
@@ -412,7 +404,7 @@ class Worker:
 
             tid, pn = self.generator.next()
 
-            region_name = self.generator.get_region_name(tid)
+            region_name = REGION_INFOS.get(tid, {}).get("region_name", "Unknown")
             task_str = f"region={region_name}, tid={tid}, pn={pn}, wid={self.wid: >2}"
             logger.note(f"> GET: {task_str}")
 
