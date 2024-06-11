@@ -57,7 +57,9 @@ class WorkerApp:
 
     def start(
         self,
-        region_codes: Optional[list[str]] = Body(["knowledge", "tech"]),
+        region_groups: Optional[list[str]] = Body([]),
+        region_codes: Optional[list[str]] = Body([]),
+        region_tids: Optional[list[int]] = Body([]),
         max_workers: Optional[int] = Body(40),
         start_tid: Optional[int] = Body(-1),
         start_pn: Optional[int] = Body(-1),
@@ -67,13 +69,19 @@ class WorkerApp:
     ):
         if not self.generator:
             self.generator = WorkerParamsGenerator(
+                region_groups=region_groups,
                 region_codes=region_codes,
+                region_tids=region_tids,
                 start_tid=start_tid,
                 start_pn=start_pn,
                 end_tid=end_tid,
                 end_pn=end_pn,
                 log_mids=log_mids,
             )
+            log_str = (
+                f"Get {len(self.generator.tids)} region tids:\n{self.generator.tids}"
+            )
+            self.generator.log_to_file(log_type="others", log_str=log_str)
         if not self.sql:
             self.sql = SQLOperator()
         self.max_workers = max_workers
