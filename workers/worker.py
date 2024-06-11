@@ -9,14 +9,21 @@ from typing import Literal
 
 from configs.envs import PROXY_APP_ENVS, LOG_ENVS
 from networks.constants import REQUESTS_HEADERS, GET_VIDEO_PAGE_API, REGION_CODES
-from transforms.video_row import VideoInfoConverter
 from networks.sql import SQLOperator
+from transforms.video_row import VideoInfoConverter
+from transforms.regions import (
+    get_region_tids_from_parent_codes,
+    get_region_tids_from_groups,
+)
+from networks.constants import REGION_INFOS
 
 
 class WorkerParamsGenerator:
     def __init__(
         self,
+        region_groups: list[str] = [],
         region_codes: list[str] = [],
+        region_tids: list[int] = [],
         start_tid: int = -1,
         start_pn: int = -1,
         end_tid: int = -1,
@@ -24,7 +31,9 @@ class WorkerParamsGenerator:
         log_mids: list[int] = [],
     ):
         self.lock = threading.Lock()
+        self.region_groups = region_groups
         self.region_codes = region_codes
+        self.region_tids = region_tids
         self.start_tid = start_tid
         self.start_pn = start_pn
         self.end_tid = end_tid
@@ -38,15 +47,18 @@ class WorkerParamsGenerator:
     def init_tids(self):
         self.queue = []
         self.exhausted_tids = []
-        main_regions = [REGION_CODES[region_code] for region_code in self.region_codes]
-        self.regions = [
-            region
-            for main_region in main_regions
-            for region in main_region["children"].values()
-            if region.get("status", "") not in ["redirect"]
-        ]
-        self.tids = [region["tid"] for region in self.regions]
-        logger.note(f"> Regions: {self.region_codes} => {len(self.tids)} sub-regions")
+
+        if self.region_tids:
+            self.tids = self.region_tids
+        elif self.region_codes:
+            self.tids = get_region_tids_from_parent_codes(self.region_codes)
+        elif self.region_groups:
+            self.tids = get_region_tids_from_groups(self.region_groups)
+        else:
+            self.tids = []
+
+        logger.note(f"> {len(self.tids)} tids:")
+        logger.success(self.tids)
 
         if self.start_tid != -1 and self.start_tid in self.tids:
             self.tid_idx = self.tids.index(self.start_tid)
