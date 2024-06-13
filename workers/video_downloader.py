@@ -8,12 +8,12 @@ from configs.envs import VIDEOS_ENVS, COOKIES_DICT
 
 
 class VideoDownloader:
-    def get_cmd_args(self, bvid: str, mid: int = 0):
+    def calc_cmd_args(self):
         self.bbdown = "BBDown"
-        self.bvid = bvid
-        self.mid = mid
-        self.user_videos_dir = Path(VIDEOS_ENVS["root"]) / f"{mid}"
-        self.user_videos_meta_json = Path(VIDEOS_ENVS["root"]) / f"{mid}" / "meta.json"
+        self.user_videos_dir = Path(VIDEOS_ENVS["root"]) / f"{self.mid}"
+        self.user_videos_meta_json = (
+            Path(VIDEOS_ENVS["root"]) / f"{self.mid}" / "meta.json"
+        )
 
         if not self.user_videos_dir.exists():
             self.user_videos_dir.mkdir(parents=True, exist_ok=True)
@@ -27,9 +27,10 @@ class VideoDownloader:
             "--multi-file-pattern": '"<bvid>_p<pageNumberWithZero>"',
             "--audio-ascending": "",
             "--download-danmaku": "",
+            "--hide-streams": "",
         }
         self.cmd_args_str = " ".join(f"{k} {v}" for k, v in self.cmd_args.items())
-        self.cmd_str = f'{self.bbdown} "{bvid}" {self.cmd_args_str}'
+        self.cmd_str = f'{self.bbdown} "{self.bvid}" {self.cmd_args_str}'
         return self.cmd_str
 
     def check_cache(self):
@@ -65,7 +66,9 @@ class VideoDownloader:
         logger.success(f"+ meta json saved for bvid: [{self.bvid}]")
 
     def download(self, bvid: str, mid: int = 0):
-        self.get_cmd_args(bvid, mid)
+        self.bvid = bvid
+        self.mid = mid
+        self.calc_cmd_args()
         logger.note(f"> Download video: [{bvid}]")
         logger.file(f"  - {self.user_videos_dir}/{bvid}*")
         is_cached = self.check_cache()
@@ -75,7 +78,8 @@ class VideoDownloader:
 
 
 if __name__ == "__main__":
-    bvid = "BV1Lm421V78u"
+    # bvid = "BV1Lm421V78u"
+    bvid = "BV1hZ421g7xC"
     mid = 946974
     donwloader = VideoDownloader()
     donwloader.download(bvid, mid)
