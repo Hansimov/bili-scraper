@@ -11,6 +11,7 @@ from tqdm import tqdm
 
 from configs.envs import LOG_ENVS, COOKIES
 from networks.wbi import ParamsWBISigner
+from workers.video_downloader import VideoDownloader
 
 
 class UserWorker:
@@ -125,13 +126,33 @@ class UserWorker:
         logger.success(f"+ Summary of video pages info saved at:")
         logger.file(f"  - {self.video_pages_json}")
 
+    def get_all_bvids(self):
+        if not self.video_pages_json.exists():
+            return []
+        bvids = []
+        with open(self.video_pages_json, "r", encoding="utf-8") as rf:
+            video_pages_dict = json.load(rf)
+            for v in video_pages_dict:
+                if v.get("bvid", ""):
+                    bvids.append(v["bvid"])
+        return bvids
+
+    def download_all_videos(self):
+        video_downloader = VideoDownloader()
+        bvids = self.get_all_bvids()
+        logger.note(f"> Download {len(bvids)} videos for mid={self.mid}")
+        for bvid in tqdm(bvids):
+            video_downloader.download(bvid, self.mid)
+            time.sleep(2)
+
     def get_all_detailed_videos_info(self):
         pass
 
     def run(self, pn: int = 1, ps: int = 5):
         # self.get_all_videos_info(ps=50, remove_old=True)
         # self.summarize_all_videos_info()
-        self.get_all_detailed_videos_info()
+        # self.get_all_detailed_videos_info()
+        self.download_all_videos()
 
 
 if __name__ == "__main__":
