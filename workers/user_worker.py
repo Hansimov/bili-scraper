@@ -19,12 +19,16 @@ class UserWorker:
         self.mid = mid
         self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["user"]
         self.save_root = Path(__file__).parents[1] / "data" / "user" / f"{self.mid}"
+        self.video_pages_dir = self.save_root / "video_pages"
+        self.video_pages_json = self.save_root / "video_pages.json"
 
     def get_json_filename(self, pn: int = 1, ps: int = 30):
         return f"videos_pn_{pn}_ps_{ps}.json"
 
-    def save_to_json(self, res: dict, json_filename: str, overwrite: bool = True):
-        save_path = self.save_root / json_filename
+    def save_video_pages_to_json(
+        self, res: dict, json_filename: str, overwrite: bool = True
+    ):
+        save_path = self.video_pages_dir / json_filename
         if not save_path.exists():
             save_path.parent.mkdir(parents=True, exist_ok=True)
         with open(save_path, "w", encoding="utf-8") as wf:
@@ -65,7 +69,7 @@ class UserWorker:
             if save_json:
                 logger.note(f"> Save videos info to json: {video_params_str}")
                 json_filename = self.get_json_filename(pn, ps)
-                self.save_to_json(
+                self.save_video_pages_to_json(
                     res=res_dict, json_filename=json_filename, overwrite=overwrite
                 )
         except Exception as e:
@@ -79,9 +83,8 @@ class UserWorker:
         self, start_pn: int = 1, ps: int = 5, remove_old: bool = False
     ):
         logger.note(f"> Fetching all videos info for mid={self.mid}")
-
-        if remove_old and self.save_root.exists():
-            shutil.rmtree(self.save_root)
+        if remove_old and self.video_pages_dir.exists():
+            shutil.rmtree(self.video_pages_dir)
 
         # get total videos count and page num
         try:
@@ -102,13 +105,39 @@ class UserWorker:
             vlist = data.get("list", {}).get("vlist", [])
             time.sleep(0.5)
 
+    def summarize_all_videos_info(self):
+        video_page_json_files = sorted(self.video_pages_dir.glob("*.json"))
+        video_pages_dict = []
+        for p in video_page_json_files:
+            # logger.file(f"  - {f}")
+            with open(p, "r", encoding="utf-8") as rf:
+                rf_dict = json.load(rf)
+                data = rf_dict.get("data", {})
+                vlist = data.get("list", {}).get("vlist", [])
+                video_pages_dict.extend(vlist)
+
+        video_pages_dict = sorted(
+            video_pages_dict, key=lambda v: v["created"], reverse=True
+        )
+
+        with open(self.video_pages_json, "w") as wf:
+            json.dump(video_pages_dict, wf, ensure_ascii=False, indent=4)
+        logger.success(f"+ Summary of video pages info saved at:")
+        logger.file(f"  - {self.video_pages_json}")
+
+    def get_all_detailed_videos_info(self):
+        pass
+
     def run(self, pn: int = 1, ps: int = 5):
-        self.get_all_videos_info(ps=50, remove_old=True)
+        # self.get_all_videos_info(ps=50, remove_old=True)
+        # self.summarize_all_videos_info()
+        self.get_all_detailed_videos_info()
 
 
 if __name__ == "__main__":
-    # mid = 946974 # 影视飓风
-    mid = 1629347259  # 红警HBK08
+    mid = 946974  # 影视飓风
+    # mid = 1629347259  # 红警HBK08
+    # mid = 39627524  # 食贫道
     worker = UserWorker(mid=mid)
     worker.run()
 

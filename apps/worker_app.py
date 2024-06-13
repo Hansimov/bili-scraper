@@ -60,7 +60,7 @@ class WorkerApp:
         region_groups: Optional[list[str]] = Body([]),
         region_codes: Optional[list[str]] = Body([]),
         region_tids: Optional[list[int]] = Body([]),
-        max_workers: Optional[int] = Body(40),
+        max_workers: Optional[int] = Body(100),
         start_tid: Optional[int] = Body(-1),
         start_pn: Optional[int] = Body(-1),
         end_tid: Optional[int] = Body(-1),
