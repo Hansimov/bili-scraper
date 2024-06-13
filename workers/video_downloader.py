@@ -50,7 +50,10 @@ class VideoDownloader:
 
     def save_meta_to_json(self):
         if not self.user_videos_meta_json.exists():
-            meta_dict = {}
+            meta_dict = {
+                "count": 0,
+                "videos": {},
+            }
         else:
             with open(self.user_videos_meta_json, "r") as rf:
                 meta_dict = json.load(rf)
@@ -58,7 +61,11 @@ class VideoDownloader:
         files_start_with_bvid = sorted(
             [f.name for f in self.user_videos_dir.glob(f"{self.bvid}*")]
         )
-        meta_dict[self.bvid] = {"status": "ok", "files": files_start_with_bvid}
+        meta_dict["videos"][self.bvid] = {
+            "status": "ok",
+            "files": files_start_with_bvid,
+        }
+        meta_dict["count"] = len(meta_dict["videos"])
 
         with open(self.user_videos_meta_json, "w", encoding="utf-8") as wf:
             json.dump(meta_dict, wf, ensure_ascii=False, indent=4)
