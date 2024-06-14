@@ -142,8 +142,9 @@ class UserWorker:
         bvids = self.get_all_bvids()
         logger.note(f"> Download {len(bvids)} videos for mid={self.mid}")
         for bvid in tqdm(bvids):
-            video_downloader.download(bvid, self.mid)
-            time.sleep(2)
+            is_download = video_downloader.download(bvid, self.mid)
+            if is_download:
+                time.sleep(2)
 
     def get_all_detailed_videos_info(self):
         pass

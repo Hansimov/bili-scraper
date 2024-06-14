@@ -39,8 +39,9 @@ class VideoDownloader:
         else:
             with open(self.user_videos_meta_json, "r") as rf:
                 meta_dict = json.load(rf)
-            if meta_dict.get(self.bvid, {}).get("status", "") == "ok":
-                cached_files = meta_dict.get(self.bvid, {}).get("files", [])
+            video_item = meta_dict.get("videos", {}).get(self.bvid, {})
+            if video_item.get("status", "") == "ok":
+                cached_files = video_item.get("files", [])
                 logger.mesg(
                     f"  * {len(cached_files)} files cached for bvid: [{self.bvid}]"
                 )
@@ -79,9 +80,12 @@ class VideoDownloader:
         logger.note(f"> Download video: [{bvid}]")
         logger.file(f"  - {self.user_videos_dir}/{bvid}*")
         is_cached = self.check_cache()
-        if not is_cached:
+        if is_cached:
+            return False
+        else:
             shell_cmd(self.cmd_str)
             self.save_meta_to_json()
+            return True
 
 
 if __name__ == "__main__":
