@@ -55,7 +55,7 @@ def create_regions_info_dict():
             region_name = sv["name"]
             region_tid = sv["tid"]
             region_status = sv.get("status", "")
-            if region_status == "redirect":
+            if region_status in ["redirect", "ignored"]:
                 continue
             region_info = {
                 "r_tid": region_tid,

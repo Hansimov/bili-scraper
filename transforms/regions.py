@@ -10,7 +10,7 @@ def get_all_region_tids(
     region_tids = []
     for k, v in REGION_INFOS.items():
         region_status = v.get("region_status", "")
-        if not include_redirect and region_status == "redirect":
+        if not include_redirect and region_status in ["redirect", "ignored"]:
             continue
         if not include_offline and region_status == "offline":
             continue
@@ -47,7 +47,7 @@ def get_region_tids_from_parent_codes(
         for k, v in region_dict.items():
             tid = v["tid"]
             status = v.get("status", "")
-            if not include_redirect and status == "redirect":
+            if not include_redirect and status in ["redirect", "ignored"]:
                 continue
             if not include_offline and status == "offline":
                 continue

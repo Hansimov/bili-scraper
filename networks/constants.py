@@ -679,6 +679,7 @@ REGION_CODES = {
             "tid": {
                 "name": "华语电影",
                 "tid": 23,
+                "status": "ignored",
             },
             "chinese": {
                 "name": "欧美电影",
@@ -738,7 +739,7 @@ def get_all_region_info() -> dict:
             region_name = region_dict["name"]
             region_status = region_dict.get("status", "")
 
-            if region_status == "redirect":
+            if region_status in ["redirect", "ignored"]:
                 continue
 
             region_info = {
