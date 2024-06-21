@@ -31,7 +31,7 @@ class VideoDownloader:
         self.cmd_str = f'{self.bbdown} "{self.bvid}" {self.cmd_args_str}'
         return self.cmd_str
 
-    def check_downloaded(self):
+    def check_existed(self):
         if not self.user_videos_meta_json.exists():
             return False
         else:
@@ -39,11 +39,11 @@ class VideoDownloader:
                 meta_dict = json.load(rf)
             video_item = meta_dict.get("videos", {}).get(self.bvid, {})
             if video_item.get("status", "") == "ok":
-                downloaded_files = video_item.get("files", [])
+                existed_files = video_item.get("files", [])
                 logger.mesg(
-                    f"  * {len(downloaded_files)} files downloaded for bvid: [{self.bvid}]"
+                    f"  * {len(existed_files)} files existed for bvid: [{self.bvid}]"
                 )
-                logger.file(f"  * {downloaded_files}")
+                logger.file(f"  * {existed_files}")
                 return True
         return False
 
@@ -94,13 +94,13 @@ class VideoDownloader:
         self.calc_cmd_args()
         logger.note(f"> Download video: [{bvid}]")
         logger.file(f"  - {self.user_videos_dir}/{bvid}*")
-        is_downloaed = self.check_downloaded()
-        if not is_downloaed:
+        is_existed = self.check_existed()
+        if not is_existed:
             shell_cmd(self.cmd_str)
-        if not is_downloaed or update_meta_for_downloaded:
+        if not is_existed or update_meta_for_downloaded:
             self.save_meta_to_json()
 
-        return not is_downloaed
+        return not is_existed
 
 
 if __name__ == "__main__":
