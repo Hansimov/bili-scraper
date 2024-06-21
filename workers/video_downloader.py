@@ -1,19 +1,17 @@
 import json
 
+from datetime import datetime
+from tclogger import logger, shell_cmd
 from pathlib import Path
 
-from tclogger import logger, shell_cmd
-
-from configs.envs import VIDEOS_ENVS, COOKIES_DICT
+from configs.envs import COOKIES_DICT, BILI_DATA_ROOT
 
 
 class VideoDownloader:
     def calc_cmd_args(self):
         self.bbdown = "BBDown"
-        self.user_videos_dir = Path(VIDEOS_ENVS["root"]) / f"{self.mid}"
-        self.user_videos_meta_json = (
-            Path(VIDEOS_ENVS["root"]) / f"{self.mid}" / "meta.json"
-        )
+        self.user_videos_dir = BILI_DATA_ROOT / f"{self.mid}" / "videos"
+        self.user_videos_meta_json = BILI_DATA_ROOT / f"{self.mid}" / "video_files.json"
 
         if not self.user_videos_dir.exists():
             self.user_videos_dir.mkdir(parents=True, exist_ok=True)
@@ -33,7 +31,7 @@ class VideoDownloader:
         self.cmd_str = f'{self.bbdown} "{self.bvid}" {self.cmd_args_str}'
         return self.cmd_str
 
-    def check_cache(self):
+    def check_downloaded(self):
         if not self.user_videos_meta_json.exists():
             return False
         else:
@@ -41,17 +39,18 @@ class VideoDownloader:
                 meta_dict = json.load(rf)
             video_item = meta_dict.get("videos", {}).get(self.bvid, {})
             if video_item.get("status", "") == "ok":
-                cached_files = video_item.get("files", [])
+                downloaded_files = video_item.get("files", [])
                 logger.mesg(
-                    f"  * {len(cached_files)} files cached for bvid: [{self.bvid}]"
+                    f"  * {len(downloaded_files)} files downloaded for bvid: [{self.bvid}]"
                 )
-                logger.file(f"  * {cached_files}")
+                logger.file(f"  * {downloaded_files}")
                 return True
         return False
 
     def save_meta_to_json(self):
         if not self.user_videos_meta_json.exists():
             meta_dict = {
+                "mid": self.mid,
                 "count": 0,
                 "videos": {},
             }
@@ -59,33 +58,49 @@ class VideoDownloader:
             with open(self.user_videos_meta_json, "r") as rf:
                 meta_dict = json.load(rf)
 
-        files_start_with_bvid = sorted(
-            [f.name for f in self.user_videos_dir.glob(f"{self.bvid}*")]
-        )
-        meta_dict["videos"][self.bvid] = {
-            "status": "ok",
-            "files": files_start_with_bvid,
-        }
-        meta_dict["count"] = len(meta_dict["videos"])
+        bvid_files = sorted(list(self.user_videos_dir.glob(f"{self.bvid}*")))
+        bvid_filnames = [f.name for f in bvid_files]
+
+        if bvid_files:
+            bvid_file_last_update_time = datetime.fromtimestamp(
+                max([f.stat().st_mtime for f in bvid_files])
+            ).strftime("%Y-%m-%d %H:%M:%S")
+
+            meta_dict["videos"][self.bvid] = {
+                "status": "ok",
+                "files": bvid_filnames,
+                "update_at": bvid_file_last_update_time,
+            }
+            meta_dict["count"] = len(meta_dict["videos"])
+        else:
+            logger.warn(f"> Videos missing for bvid: [{self.bvid}]")
+            meta_dict["videos"][self.bvid] = {
+                "status": "missing",
+                "files": bvid_filnames,
+                "update_at": "",
+            }
+            meta_dict["count"] = len(meta_dict["videos"])
 
         with open(self.user_videos_meta_json, "w", encoding="utf-8") as wf:
             json.dump(meta_dict, wf, ensure_ascii=False, indent=4)
 
-        logger.success(f"+ meta json saved for bvid: [{self.bvid}]")
+        logger.success(f"+ Meta info saved for bvid: [{self.bvid}]")
 
-    def download(self, bvid: str, mid: int = 0):
+    def download(
+        self, bvid: str, mid: int = 0, update_meta_for_downloaded: bool = False
+    ):
         self.bvid = bvid
         self.mid = mid
         self.calc_cmd_args()
         logger.note(f"> Download video: [{bvid}]")
         logger.file(f"  - {self.user_videos_dir}/{bvid}*")
-        is_cached = self.check_cache()
-        if is_cached:
-            return False
-        else:
+        is_downloaed = self.check_downloaded()
+        if not is_downloaed:
             shell_cmd(self.cmd_str)
+        if not is_downloaed or update_meta_for_downloaded:
             self.save_meta_to_json()
-            return True
+
+        return not is_downloaed
 
 
 if __name__ == "__main__":
