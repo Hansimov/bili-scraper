@@ -9,7 +9,7 @@ from tclogger import logger
 from termcolor import colored
 from tqdm import tqdm
 
-from configs.envs import LOG_ENVS, COOKIES
+from configs.envs import LOG_ENVS, COOKIES, BILI_DATA_ROOT
 from networks.wbi import ParamsWBISigner
 from workers.video_downloader import VideoDownloader
 
@@ -18,10 +18,11 @@ class UserWorker:
     def __init__(self, mid: int = None):
         self.url = "https://api.bilibili.com/x/space/wbi/arc/search"
         self.mid = mid
-        self.log_file = Path(__file__).parents[1] / "logs" / LOG_ENVS["user"]
-        self.save_root = Path(__file__).parents[1] / "data" / "user" / f"{self.mid}"
+        self.log_file = BILI_DATA_ROOT / "logs" / LOG_ENVS["user"]
+        self.save_root = BILI_DATA_ROOT / f"{self.mid}"
         self.video_pages_dir = self.save_root / "video_pages"
         self.video_pages_json = self.save_root / "video_pages.json"
+        self.video_page_request_interval = 0.5
 
     def get_json_filename(self, pn: int = 1, ps: int = 30):
         return f"videos_pn_{pn}_ps_{ps}.json"
@@ -95,7 +96,7 @@ class UserWorker:
             vlist = data.get("list", {}).get("vlist", [])
             page_num = ceil(videos_total_count / ps)
             author = vlist[0].get("author", "Unknown")
-            time.sleep(0.5)
+            time.sleep(self.video_page_request_interval)
         except Exception as e:
             logger.warn(f"x Error: {e}")
 
@@ -104,7 +105,7 @@ class UserWorker:
         for pn in tqdm(range(start_pn, page_num + 1)):
             res_dict = self.get_videos_info(pn=pn, ps=ps)
             vlist = data.get("list", {}).get("vlist", [])
-            time.sleep(0.5)
+            time.sleep(self.video_page_request_interval)
 
     def summarize_all_videos_info(self):
         video_page_json_files = sorted(self.video_pages_dir.glob("*.json"))
