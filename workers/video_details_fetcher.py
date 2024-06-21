@@ -82,15 +82,39 @@ class VideoDetailsFetcher:
             data.pop(key, None)
         return data
 
+    def check_existed(self, mid: int = None):
+        if mid is None:
+            existed_path = BILI_DATA_ROOT.glob(f"*/video_details/{self.bvid}.json")
+            existed_path = sorted(list(existed_path))
+            if existed_path:
+                existed_path = existed_path[0]
+                mid = existed_path.parents[1].name
+            else:
+                return False
+        else:
+            existed_path = (
+                BILI_DATA_ROOT / f"{mid}" / "video_details" / f"{self.bvid}.json"
+            )
+            if not existed_path.exists():
+                return False
+
+        with open(existed_path, "r") as rf:
+            data = json.load(rf)
+        if data.get("bvid", "") == self.bvid:
+            logger.mesg(f"  * Video details existed: bvid=[{self.bvid}], mid=[{mid}]")
+            logger.file(f"  - {existed_path}")
+            return True
+        return False
+
     def save_to_json(self, data: dict):
         with open(self.save_path, "w", encoding="utf-8") as wf:
             json.dump(data, wf, ensure_ascii=False, indent=4)
-        logger.success(f"+ Video details saved:")
+        logger.success(f"  + Video details saved: bvid=[{self.bvid}], mid=[{self.mid}]")
         logger.file(f"  - {self.save_path}")
 
     def save_result(self, res: requests.Response = None, mid: int = None):
         if res is None:
-            logger.warn(f"× No result found for bvid: [{self.bvid}]")
+            logger.warn(f"× No result found: bvid=[{self.bvid}]")
             return
 
         res_dict = res.json()
@@ -105,16 +129,19 @@ class VideoDetailsFetcher:
         data = self.filter_video_data(data)
         self.save_to_json(data)
 
-    def fetch(self, bvid: str, mid: int = None, proxy: str = None):
+    def fetch(self, bvid: str, mid: int = None, overwrite: bool = False):
         self.bvid = bvid
 
         logger.note(f"> Fetch video details for bvid:", end=" ")
         logger.mesg(f"[{self.bvid}]")
 
+        is_existed = self.check_existed(mid=mid)
+        if is_existed and not overwrite:
+            return False
+
         params = {"bvid": self.bvid}
 
         is_completed = False
-
         while not is_completed:
             retry_count = 0
             self.get_proxy()
@@ -141,11 +168,13 @@ class VideoDetailsFetcher:
 
         self.save_result(res, mid=mid)
 
+        return True
+
 
 if __name__ == "__main__":
-    # bvid = "BV1Qz421B7W9"
+    bvid = "BV1Qz421B7W9"
     # bvid = "BV1es411q7uP"  # 17 parts
-    bvid = "BV13x411A7e8"
+    # bvid = "BV1Uh4y1N7oD"  # missing
     fetcher = VideoDetailsFetcher()
     fetcher.fetch(bvid)
 
