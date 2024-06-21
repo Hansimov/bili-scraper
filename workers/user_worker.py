@@ -152,35 +152,58 @@ class UserWorker:
     def get_all_detailed_videos_info(self):
         pass
 
-    def run(self, pn: int = 1, update_videos_info: bool = False):
+    def run(
+        self,
+        update_videos_info: bool = False,
+        download_videos: bool = False,
+    ):
         if update_videos_info or not self.video_pages_json.exists():
             self.get_all_videos_info(ps=50, remove_old=True)
             self.summarize_all_videos_info()
         else:
             logger.mesg("> Skip updating videos info:")
             logger.file(f"  - {self.video_pages_json}")
-        # self.get_all_detailed_videos_info()
-        # self.download_all_videos()
+
+        if download_videos:
+            self.download_all_videos()
+        else:
+            logger.mesg("> Skip downloading videos.")
 
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self, *args, **kwargs):
         super(ArgParser, self).__init__(*args, **kwargs)
         self.add_argument(
+            "-m",
+            "--mid",
+            type=int,
+            help="User mid.",
+        )
+        self.add_argument(
             "-u",
             "--update",
             action="store_true",
             help="Update all video info pages. If exists, overwrite.",
         )
+        self.add_argument(
+            "-d",
+            "--download",
+            action="store_true",
+            help="Download all videos. If some video exists, skip it.",
+        )
+
         self.args = self.parse_args(sys.argv[1:])
 
 
 if __name__ == "__main__":
     args = ArgParser().args
-    mid = 946974  # 影视飓风
+    mid = args.mid or 946974  # 影视飓风
     # mid = 1629347259  # 红警HBK08
     worker = UserWorker(mid=mid)
-    worker.run(update_videos_info=args.update)
+    worker.run(update_videos_info=args.update, download_videos=args.download)
 
-    # python -m workers.user_worker
+    # Update all video info pages
     # python -m workers.user_worker -u
+
+    # Download all videos
+    # python -m workers.user_worker -d
