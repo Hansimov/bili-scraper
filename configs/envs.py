@@ -10,7 +10,8 @@ PROXY_APP_ENVS = ENVS_ENVER["proxy_app"]
 WORKER_APP_ENVS = ENVS_ENVER["worker_app"]
 VIDEO_PAGE_API_MOCKER_ENVS = ENVS_ENVER["video_page_api_mocker"]
 LOG_ENVS = ENVS_ENVER["logs"]
-VIDEOS_ENVS = ENVS_ENVER["videos"]
+BILI_DATA_ENVS = ENVS_ENVER["bili_data"]
+BILI_DATA_ROOT = Path(BILI_DATA_ENVS["root"])
 
 secrets_path = configs_root / "secrets.json"
 SECRETS = OSEnver(secrets_path)

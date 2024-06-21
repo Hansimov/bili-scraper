@@ -22,7 +22,7 @@
         "sql": "sql.log",
         "user": "user.log"
     },
-    "videos": {
-        "root": "/media/data/bili-videos"
+    "bili_data": {
+        "root": "/media/data/bili"
     }
 }
