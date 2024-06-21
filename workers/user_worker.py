@@ -14,6 +14,7 @@ from tqdm import tqdm
 from configs.envs import LOG_ENVS, COOKIES, BILI_DATA_ROOT
 from networks.wbi import ParamsWBISigner
 from workers.video_downloader import VideoDownloader
+from workers.video_details_fetcher import VideoDetailsFetcher
 
 
 class UserWorker:
@@ -24,6 +25,7 @@ class UserWorker:
         self.save_root = BILI_DATA_ROOT / f"{self.mid}"
         self.video_pages_dir = self.save_root / "video_pages"
         self.video_pages_json = self.save_root / "video_pages.json"
+        self.video_details_josn = self.save_root / "video_details.json"
         self.video_page_request_interval = 0.5
 
     def get_json_filename(self, pn: int = 1, ps: int = 30):
@@ -40,7 +42,7 @@ class UserWorker:
         logger.success(f"+ Videos info saved:")
         logger.file(f"  * {save_path}")
 
-    def get_videos_info(
+    def fetch_videos_info(
         self,
         pn: int = 1,
         ps: int = 5,
@@ -83,7 +85,7 @@ class UserWorker:
 
         return res_dict
 
-    def get_all_videos_info(
+    def fetch_all_videos_info(
         self, start_pn: int = 1, ps: int = 5, remove_old: bool = False
     ):
         logger.note(f"> Fetching all videos info for mid={self.mid}")
@@ -92,7 +94,7 @@ class UserWorker:
 
         # get total videos count and page num
         try:
-            res_dict = self.get_videos_info(pn=1, ps=ps)
+            res_dict = self.fetch_videos_info(pn=1, ps=ps)
             data = res_dict.get("data", {})
             videos_total_count = data.get("page", {}).get("count", 0)
             vlist = data.get("list", {}).get("vlist", [])
@@ -105,7 +107,7 @@ class UserWorker:
         # get all pages of current user
         logger.file(f"  - {page_num} pages, {videos_total_count} videos by {author}")
         for pn in tqdm(range(start_pn, page_num + 1)):
-            res_dict = self.get_videos_info(pn=pn, ps=ps)
+            res_dict = self.fetch_videos_info(pn=pn, ps=ps)
             vlist = data.get("list", {}).get("vlist", [])
             time.sleep(self.video_page_request_interval)
 
@@ -149,16 +151,23 @@ class UserWorker:
             if is_download:
                 time.sleep(2)
 
-    def get_all_detailed_videos_info(self):
-        pass
+    def fetch_all_videos_details(self):
+        bvids = self.get_all_bvids()
+        video_details_fetcher = VideoDetailsFetcher()
+        logger.note(f"> Fetch {len(bvids)} videos details for mid={self.mid}")
+        for bvid in tqdm(bvids):
+            is_fetch = video_details_fetcher.fetch(bvid, self.mid)
+            if is_fetch:
+                time.sleep(self.video_page_request_interval)
 
     def run(
         self,
-        update_videos_info: bool = False,
+        update_videos_pages: bool = False,
         download_videos: bool = False,
+        fetch_videos_details: bool = False,
     ):
-        if update_videos_info or not self.video_pages_json.exists():
-            self.get_all_videos_info(ps=50, remove_old=True)
+        if update_videos_pages or not self.video_pages_json.exists():
+            self.fetch_all_videos_info(ps=50, remove_old=True)
             self.summarize_all_videos_info()
         else:
             logger.mesg("> Skip updating videos info:")
@@ -168,6 +177,11 @@ class UserWorker:
             self.download_all_videos()
         else:
             logger.mesg("> Skip downloading videos.")
+
+        if fetch_videos_details:
+            self.fetch_all_videos_details()
+        else:
+            logger.mesg("> Skip fetching videos details.")
 
 
 class ArgParser(argparse.ArgumentParser):
@@ -180,16 +194,22 @@ class ArgParser(argparse.ArgumentParser):
             help="User mid.",
         )
         self.add_argument(
-            "-u",
-            "--update",
+            "-p",
+            "--pages",
             action="store_true",
             help="Update all video info pages. If exists, overwrite.",
         )
         self.add_argument(
-            "-d",
-            "--download",
+            "-v",
+            "--videos",
             action="store_true",
             help="Download all videos. If some video exists, skip it.",
+        )
+        self.add_argument(
+            "-d",
+            "--details",
+            action="store_true",
+            help="Fetch all videos details. If some video details exist, skip it.",
         )
 
         self.args = self.parse_args(sys.argv[1:])
@@ -200,10 +220,17 @@ if __name__ == "__main__":
     mid = args.mid or 946974  # 影视飓风
     # mid = 1629347259  # 红警HBK08
     worker = UserWorker(mid=mid)
-    worker.run(update_videos_info=args.update, download_videos=args.download)
+    worker.run(
+        update_videos_pages=args.pages,
+        download_videos=args.videos,
+        fetch_videos_details=args.details,
+    )
 
     # Update all video info pages
-    # python -m workers.user_worker -u
+    # python -m workers.user_worker -p
 
     # Download all videos
+    # python -m workers.user_worker -v
+
+    # Fetch all videos details
     # python -m workers.user_worker -d
