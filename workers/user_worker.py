@@ -1,6 +1,8 @@
+import argparse
 import json
 import requests
 import shutil
+import sys
 import time
 
 from math import ceil
@@ -150,18 +152,35 @@ class UserWorker:
     def get_all_detailed_videos_info(self):
         pass
 
-    def run(self, pn: int = 1, ps: int = 5):
-        # self.get_all_videos_info(ps=50, remove_old=True)
-        # self.summarize_all_videos_info()
+    def run(self, pn: int = 1, update_videos_info: bool = False):
+        if update_videos_info or not self.video_pages_json.exists():
+            self.get_all_videos_info(ps=50, remove_old=True)
+            self.summarize_all_videos_info()
+        else:
+            logger.mesg("> Skip updating videos info:")
+            logger.file(f"  - {self.video_pages_json}")
         # self.get_all_detailed_videos_info()
-        self.download_all_videos()
+        # self.download_all_videos()
+
+
+class ArgParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super(ArgParser, self).__init__(*args, **kwargs)
+        self.add_argument(
+            "-u",
+            "--update",
+            action="store_true",
+            help="Update all video info pages. If exists, overwrite.",
+        )
+        self.args = self.parse_args(sys.argv[1:])
 
 
 if __name__ == "__main__":
+    args = ArgParser().args
     mid = 946974  # 影视飓风
     # mid = 1629347259  # 红警HBK08
-    # mid = 39627524  # 食贫道
     worker = UserWorker(mid=mid)
-    worker.run()
+    worker.run(update_videos_info=args.update)
 
     # python -m workers.user_worker
+    # python -m workers.user_worker -u
