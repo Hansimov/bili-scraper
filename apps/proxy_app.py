@@ -190,6 +190,7 @@ class ProxyApp:
 
     class RefreshProxiesPostItem(BaseModel):
         refresh_good: Optional[bool] = False
+        test_type: Optional[str] = "newlist"
 
     def refresh_proxies(self, item: RefreshProxiesPostItem):
         start_refresh_time = datetime.now()
@@ -199,7 +200,7 @@ class ProxyApp:
         self.is_refreshing_proxies = True
         proxies = ProxyPool().get_proxies_list()
         proxies = list(set(proxies))
-        benchmarker = ProxyBenchmarker()
+        benchmarker = ProxyBenchmarker(test_type=item.test_type)
         old_good_proxies = self.db.get_good_proxies_list()
         old_bad_proxies = self.db.get_bad_proxies_list()
         old_using_proxies = self.db.get_using_proxies_list()
@@ -328,6 +329,25 @@ class ProxyApp:
         }
         return res
 
+    class RestoreProxyPostItem(BaseModel):
+        server: str = Body(default="", description="Proxy server to restore")
+
+    # ANCHOR[id=restore_proxy]
+    def restore_proxy(self, item: RestoreProxyPostItem):
+        server = item.server
+        logger.note(f"> Restore proxy: {server}")
+        self.db.remove_using_proxy(server)
+        self.db.remove_bad_proxy(server)
+        self.db.add_good_proxy(server, latency=0.0, success_rate=1.0)
+        logger.success(f"+ Restored proxy: {server}")
+        logger.note(f"  ({len(self.db.get_using_proxies_list())} using proxies)")
+        logger.mesg(f"  ({len(self.db.get_good_proxies_list())} good proxies left)")
+        res = {
+            "server": server,
+            "status": "restored",
+        }
+        return res
+
     # ANCHOR[id=reset_using_proxies]
     def reset_using_proxies(self, flag_as_good: Optional[bool] = Body(True)):
         if flag_as_good:
@@ -366,8 +386,13 @@ class ProxyApp:
 
         self.app.post(
             "/drop_proxy",
-            summary="Drop a proxy",
+            summary="Drop a proxy as bad",
         )(self.drop_proxy)
+
+        self.app.post(
+            "/restore_proxy",
+            summary="Restore a proxy as good",
+        )(self.restore_proxy)
 
         self.app.post(
             "/reset_using_proxies",
