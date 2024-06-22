@@ -1,4 +1,6 @@
+import argparse
 import pandas as pd
+import sys
 import requests
 import threading
 import uvicorn
@@ -11,7 +13,7 @@ from termcolor import colored
 from typing import Optional, List, Literal
 
 from apps.arg_parser import ArgParser
-from configs.envs import PROXY_APP_ENVS, WORKER_APP_ENVS
+from configs.envs import PROXY_APP_ENVS, PROXY_VIEW_APP_ENVS, WORKER_APP_ENVS
 from networks.proxy_pool import ProxyPool, ProxyBenchmarker
 
 
@@ -171,12 +173,15 @@ class ProxiesDatabase:
 
 
 class ProxyApp:
-    def __init__(self):
+    def __init__(self, app_envs: dict = {}):
+        self.title = app_envs.get("app_name")
+        self.version = app_envs.get("version")
+        self.test_type = app_envs.get("test_type")
         self.app = FastAPI(
             docs_url="/",
-            title=PROXY_APP_ENVS["app_name"],
+            title=self.title,
+            version=self.version,
             swagger_ui_parameters={"defaultModelsExpandDepth": -1},
-            version=PROXY_APP_ENVS["version"],
         )
         self.db = ProxiesDatabase()
         self.last_refresh_time = None
@@ -186,11 +191,10 @@ class ProxyApp:
         self.empty_bad_proxies_time = None
         self.trigger_empty_bad_proxies_min_seconds = 300
         self.setup_routes()
-        logger.success(f"> {PROXY_APP_ENVS['app_name']} - v{PROXY_APP_ENVS['version']}")
+        logger.success(f"> {self.title} - v{self.version}")
 
     class RefreshProxiesPostItem(BaseModel):
         refresh_good: Optional[bool] = False
-        test_type: Optional[str] = "newlist"
 
     def refresh_proxies(self, item: RefreshProxiesPostItem):
         start_refresh_time = datetime.now()
@@ -200,7 +204,7 @@ class ProxyApp:
         self.is_refreshing_proxies = True
         proxies = ProxyPool().get_proxies_list()
         proxies = list(set(proxies))
-        benchmarker = ProxyBenchmarker(test_type=item.test_type)
+        benchmarker = ProxyBenchmarker(test_type=self.test_type)
         old_good_proxies = self.db.get_good_proxies_list()
         old_bad_proxies = self.db.get_bad_proxies_list()
         old_using_proxies = self.db.get_using_proxies_list()
@@ -405,13 +409,31 @@ class ProxyApp:
         )(self.refresh_proxies)
 
 
-app = ProxyApp().app
+class CLIArgParser(argparse.ArgumentParser):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.add_argument(
+            "-t",
+            "--test-type",
+            type=str,
+            default="newlist",
+            help=f"Test type for ProxyBenchmarker: 'view' or 'newlist'. (Default: 'newlist')",
+        )
+        self.args, self.unknown_args = self.parse_known_args(sys.argv[1:])
+
 
 if __name__ == "__main__":
-    args = ArgParser(app_envs=PROXY_APP_ENVS).args
-    if args.reload:
-        uvicorn.run("__main__:app", host=args.host, port=args.port, reload=True)
+    cli_args = CLIArgParser().args
+    if cli_args.test_type == "view":
+        app_envs = PROXY_VIEW_APP_ENVS
     else:
-        uvicorn.run("__main__:app", host=args.host, port=args.port)
+        app_envs = PROXY_APP_ENVS
+    app = ProxyApp(app_envs).app
+    app_args = ArgParser(app_envs=app_envs).args
+    if app_args.reload:
+        uvicorn.run("__main__:app", host=app_args.host, port=app_args.port, reload=True)
+    else:
+        uvicorn.run("__main__:app", host=app_args.host, port=app_args.port)
 
     # python -m apps.proxy_app
+    # python -m apps.proxy_app -t view

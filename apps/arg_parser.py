@@ -4,7 +4,7 @@ import sys
 
 class ArgParser(argparse.ArgumentParser):
     def __init__(self, app_envs={}, *args, **kwargs):
-        super(ArgParser, self).__init__(*args, **kwargs)
+        super().__init__(*args, **kwargs)
 
         self.host = app_envs.get("host", "127.0.0.1")
         self.port = app_envs.get("port", 19898)
@@ -31,4 +31,4 @@ class ArgParser(argparse.ArgumentParser):
             help="Reload server on code change",
         )
 
-        self.args = self.parse_args(sys.argv[1:])
+        self.args, self.unknown_args = self.parse_known_args(sys.argv[1:])

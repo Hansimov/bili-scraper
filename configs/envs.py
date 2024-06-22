@@ -7,6 +7,7 @@ envs_path = configs_root / "envs.json"
 
 ENVS_ENVER = OSEnver(envs_path)
 PROXY_APP_ENVS = ENVS_ENVER["proxy_app"]
+PROXY_VIEW_APP_ENVS = ENVS_ENVER["proxy_view_app"]
 WORKER_APP_ENVS = ENVS_ENVER["worker_app"]
 VIDEO_PAGE_API_MOCKER_ENVS = ENVS_ENVER["video_page_api_mocker"]
 LOG_ENVS = ENVS_ENVER["logs"]
