@@ -156,9 +156,12 @@ class UserWorker:
         video_details_fetcher = VideoDetailsFetcher()
         logger.note(f"> Fetch {len(bvids)} videos details for mid={self.mid}")
         for bvid in tqdm(bvids):
-            is_fetch = video_details_fetcher.fetch(bvid, self.mid)
+            is_fetch = video_details_fetcher.fetch(
+                bvid, mid=self.mid, restore_proxy_after_fetch=False
+            )
             if is_fetch:
                 time.sleep(self.video_page_request_interval)
+        video_details_fetcher.restore_proxy()
 
     def run(
         self,

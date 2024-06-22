@@ -3,7 +3,7 @@ import requests
 
 from tclogger import logger
 
-from configs.envs import PROXY_APP_ENVS, COOKIES, BILI_DATA_ROOT
+from configs.envs import PROXY_VIEW_APP_ENVS, COOKIES, BILI_DATA_ROOT
 from networks.wbi import ParamsWBISigner
 from networks.constants import REQUESTS_HEADERS
 
@@ -16,12 +16,13 @@ class VideoDetailsFetcher:
         self.headers = REQUESTS_HEADERS
         self.headers["Cookie"] = COOKIES
 
-        self.proxy_endpoint = f"http://127.0.0.1:{PROXY_APP_ENVS['port']}"
+        self.proxy_endpoint = f"http://127.0.0.1:{PROXY_VIEW_APP_ENVS['port']}"
         self.get_proxy_api = f"{self.proxy_endpoint}/get_proxy"
         self.drop_proxy_api = f"{self.proxy_endpoint}/drop_proxy"
         self.restore_proxy_api = f"{self.proxy_endpoint}/restore_proxy"
 
         self.proxy = None
+        self.is_proxy_usable = False
 
         self.retry_interval = 0.5
         self.retry_count = 5
@@ -62,6 +63,8 @@ class VideoDetailsFetcher:
             requests.post(self.drop_proxy_api, json={"server": self.proxy})
         except Exception as e:
             pass
+        self.proxy = None
+        self.requests_proxies = None
 
     def restore_proxy(self):
         # LINK apps/proxy_app.py#restore_proxy
@@ -69,6 +72,8 @@ class VideoDetailsFetcher:
             requests.post(self.restore_proxy_api, json={"server": self.proxy})
         except Exception as e:
             pass
+        self.proxy = None
+        self.requests_proxies = None
 
     def create_save_path(self):
         self.save_path = (
@@ -129,7 +134,13 @@ class VideoDetailsFetcher:
         data = self.filter_video_data(data)
         self.save_to_json(data)
 
-    def fetch(self, bvid: str, mid: int = None, overwrite: bool = False):
+    def fetch(
+        self,
+        bvid: str,
+        mid: int = None,
+        overwrite: bool = False,
+        restore_proxy_after_fetch: bool = True,
+    ):
         self.bvid = bvid
 
         logger.note(f"> Fetch video details for bvid:", end=" ")
@@ -144,7 +155,8 @@ class VideoDetailsFetcher:
         is_completed = False
         while not is_completed:
             retry_count = 0
-            self.get_proxy()
+            if not self.proxy or not self.is_proxy_usable:
+                self.get_proxy()
             while retry_count < self.retry_count:
                 try:
                     res = requests.get(
@@ -156,14 +168,20 @@ class VideoDetailsFetcher:
                     )
                     retry_count = 0
                     is_completed = True
+
                     break
                 except Exception as e:
                     retry_count += 1
 
             if not is_completed:
                 self.drop_proxy()
+                self.is_proxy_usable = False
             else:
-                self.restore_proxy()
+                if restore_proxy_after_fetch:
+                    self.restore_proxy()
+                    self.is_proxy_usable = False
+                else:
+                    self.is_proxy_usable = True
                 break
 
         self.save_result(res, mid=mid)

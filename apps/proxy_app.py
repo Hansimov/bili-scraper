@@ -248,7 +248,10 @@ class ProxyApp:
             "status": "refreshed",
         }
 
-        if good_proxies_count > self.trigger_refresh_proxies_min_goods:
+        if (
+            self.test_type == "newlist"
+            and good_proxies_count > self.trigger_refresh_proxies_min_goods
+        ):
             self.resume_workers(
                 num=good_proxies_count - self.trigger_refresh_proxies_min_goods
             )
