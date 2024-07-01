@@ -151,13 +151,16 @@ class UserWorker:
             if is_download:
                 time.sleep(2)
 
-    def fetch_all_videos_details(self):
+    def fetch_all_videos_details(self, overwrite: bool = False):
         bvids = self.get_all_bvids()
         video_details_fetcher = VideoDetailsFetcher()
         logger.note(f"> Fetch {len(bvids)} videos details for mid={self.mid}")
         for bvid in tqdm(bvids):
             is_fetch = video_details_fetcher.fetch(
-                bvid, mid=self.mid, restore_proxy_after_fetch=False
+                bvid,
+                mid=self.mid,
+                overwrite=overwrite,
+                restore_proxy_after_fetch=False,
             )
             if is_fetch:
                 time.sleep(self.video_page_request_interval)
@@ -168,6 +171,7 @@ class UserWorker:
         update_videos_pages: bool = False,
         download_videos: bool = False,
         fetch_videos_details: bool = False,
+        overwrite_video_details: bool = False,
     ):
         if update_videos_pages or not self.video_pages_json.exists():
             self.fetch_all_videos_info(ps=50, remove_old=True)
@@ -182,7 +186,7 @@ class UserWorker:
             logger.mesg("> Skip downloading videos.")
 
         if fetch_videos_details:
-            self.fetch_all_videos_details()
+            self.fetch_all_videos_details(overwrite=overwrite_video_details)
         else:
             logger.mesg("> Skip fetching videos details.")
 
@@ -214,6 +218,12 @@ class ArgParser(argparse.ArgumentParser):
             action="store_true",
             help="Fetch all videos details. If some video details exist, skip it.",
         )
+        self.add_argument(
+            "-od",
+            "--overwrite-details",
+            action="store_true",
+            help="Overwrite existing video details.",
+        )
 
         self.args = self.parse_args(sys.argv[1:])
 
@@ -227,6 +237,7 @@ if __name__ == "__main__":
         update_videos_pages=args.pages,
         download_videos=args.videos,
         fetch_videos_details=args.details,
+        overwrite_video_details=args.overwrite_details,
     )
 
     # Update all video info pages
@@ -237,3 +248,7 @@ if __name__ == "__main__":
 
     # Fetch all videos details
     # python -m workers.user_worker -d
+    # python -m workers.user_worker -d -od
+
+    # Update video info pages, download video and download details (overwrite)
+    # python -m workers.user_worker -p -v -d -od
