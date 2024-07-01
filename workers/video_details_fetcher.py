@@ -6,6 +6,7 @@ from tclogger import logger
 from configs.envs import PROXY_VIEW_APP_ENVS, COOKIES, BILI_DATA_ROOT
 from networks.wbi import ParamsWBISigner
 from networks.constants import REQUESTS_HEADERS
+from transforms.times import get_now_ts_str
 
 
 class VideoDetailsFetcher:
@@ -85,6 +86,9 @@ class VideoDetailsFetcher:
     def filter_video_data(self, data: dict):
         for key in self.KEYS_TO_IGNORE:
             data.pop(key, None)
+        now_ts, now_str = get_now_ts_str()
+        data["record_date"] = now_ts
+        data["record_date_str"] = now_str
         return data
 
     def check_existed(self, mid: int = None):
